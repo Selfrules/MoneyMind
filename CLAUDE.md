@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-MoneyMind v3.0 is a personal finance coach app built with Streamlit. It's an AI-First, Mobile-Native, Freedom-Focused financial dashboard that helps users track transactions, manage debts, set goals, and achieve financial freedom through personalized AI coaching.
+MoneyMind v4.0 is an AI-First, Mobile-Native, Freedom-Focused personal finance coach built with Streamlit. It transforms from a passive tracker to a **directive assistant** that actively helps users reduce debt payoff time and increase monthly savings through concrete daily actions.
 
 ## Development Commands
 
@@ -26,126 +26,130 @@ ANTHROPIC_API_KEY=your_api_key_here
 ## Architecture
 
 ### Single-Page App with Bottom Tab Navigation
-The app uses a mobile-first SPA architecture with 5 main tabs:
+Mobile-first SPA architecture with 5 main tabs:
 
-- **Home** - Freedom Score card, quick stats (net worth, debt), current financial phase, AI insights, recent transactions
-- **Money** - Sub-tabs for Transactions (monthly grouped list), Budget (progress bars), Trends (income vs expenses chart)
-- **Coach** - AI chat interface with suggested questions, rule-based responses analyzing user's financial data
-- **Goals** - Debt freedom tracker with Avalanche strategy, timeline visualization, future goals (emergency fund, custom)
-- **Profile** - User info, financial health KPIs (savings rate, DTI ratio, emergency fund months), actions menu
+- **Home** - Freedom Score, Plan vs Actual comparison, Daily Actions (1-3 high-impact tasks), AI Insights, Scenario Comparison
+- **Money** - Sub-tabs: Transactions, Budget, Trends, **Ricorrenti** (recurring expenses with optimization suggestions)
+- **Coach** - AI chat with Claude Opus 4.5, context-aware responses, decision tracking
+- **Goals** - Debt freedom tracker (Avalanche/Snowball), timeline visualization, emergency fund goals
+- **Profile** - User info, financial health KPIs, impact stories from past decisions
 
 ### Core Modules (`src/`)
-- `database.py` - SQLite database with extended schema for debts, goals, insights, KPI history, chat history. Uses context manager pattern (`get_db_context()`). Initializes 19 default Italian spending categories.
-- `analytics.py` - Financial KPI calculations:
-  - Net worth, savings rate, DTI ratio
-  - Debt payoff strategies (Avalanche vs Snowball with projections)
-  - Spending trends and anomaly detection
-  - Financial health score (0-100 with grade A-F)
-  - Budget recommendations (50/30/20 rule adapted for debt phase)
-- `styles.py` - Complete design system with mobile-first CSS, component templates (freedom_score_card, metric_card, transaction_row, chat_bubble, debt_card, goal_progress_card, etc.)
-- `utils.py` - Utility functions
 
-### AI Integration (`src/ai/`)
-- `categorizer.py` - Hybrid categorization system:
-  - **Phase 1: Rule-based** - Pattern matching for known providers (~70% hit rate)
-  - **Phase 2: Claude AI** - Haiku for remaining transactions in batches of 15
-- `advisor.py` - AI Financial Advisor using Claude Opus 4.5:
-  - Extended thinking mode for deep analysis
-  - `get_financial_advice()` - Personalized advice with full financial context
-  - `generate_monthly_coaching()` - Monthly report with KPI analysis and action plan
-  - `analyze_spending_opportunity()` - Category-specific optimization suggestions
-  - `explain_concept()` - Financial education in simple terms
-  - `evaluate_financial_decision()` - Decision analysis with pros/cons
-- `reporter.py` - Monthly report generation using Claude Sonnet
+#### Database Layer
+- `database.py` - SQLite with extended v4.0 schema. Context manager pattern (`get_db_context()`). 19 default Italian categories.
 
-### Bank Parsers (`src/parsers/`)
-- `revolut.py` - Auto-detects Italian format and Legacy format, generates SHA256 IDs
-- `illimity.py` - Parses XLSX exports, maps Italian transaction types
+#### Analytics & Finance Engine (`src/core_finance/`)
+- `baseline.py` - 3-month baseline calculator, current vs baseline comparison
+- `debt_planner.py` - Monthly payment plans, scenario comparison (current vs MoneyMind), on-track status
+- `budget_generator.py` - Auto-generate budgets from debt plan, 50/30/20 rule adapted for debt phase
+- `replanner.py` - Monthly re-planning based on actual vs planned spending
+
+#### Repository Pattern (`src/repositories/`)
+- `base.py` - Abstract repository base class
+- `transaction_repository.py`, `debt_repository.py`, `budget_repository.py`
+- `recurring_repository.py`, `decision_repository.py`, `action_repository.py`
+- `baseline_repository.py`
+
+#### AI Layer (`src/ai/`)
+- `categorizer.py` - **Hybrid categorization** with 100+ rule-based patterns (95% hit rate), Claude Haiku fallback
+- `advisor.py` - Financial coach with Claude Opus 4.5 extended thinking
+- `insight_engine.py` - Proactive insights (spending anomalies, optimization opportunities)
+- `action_planner.py` - Daily action generation (Full Auto mode)
+- `recurring_optimizer.py` - Smart suggestions for recurring expense optimization
+
+#### Bank Parsers (`src/parsers/`)
+- `revolut.py` - Italian format, Legacy format, SHA256 IDs
+- `illimity.py` - XLSX exports, Italian transaction type mapping
 
 ### Categorization Rules (`src/ai/categorizer.py`)
-- **Savings**: Revolut roundups ("Accredita EUR Risparmio") -> `Risparmi Automatici`
-- **Utilities**: Octopus Energy, Hera, Iren, Enel -> `Utenze`
-- **Loans**: Agos, Findomestic, Illimity SDD codes -> `Finanziamenti`
-- **Subscriptions**: Netflix, Spotify, Prime Video, GitHub -> `Abbonamenti`
-- **Salary**: "ACCREDITO COMPETENZE", "ACCREDITO MENS" -> `Stipendio`
-- **Transfers**: "Trasferimento" descriptions -> `Trasferimenti`
 
-## Database Schema
+**100+ patterns organized by category:**
+
+| Category | Key Patterns |
+|----------|-------------|
+| Risparmi Automatici | `accredita.*risparmio`, Revolut roundups |
+| Stipendio | `accredito competenze`, `accredito mens` |
+| Utenze | Octopus, Hera, Iren, Enel, TIM, Vodafone, Iliad |
+| Finanziamenti | Agos, Findomestic, `personal loan`, `paga in 3`, repayment |
+| Abbonamenti | Netflix, Spotify, GitHub, ChatGPT, Notion, Whoop, Audible, Nexi, Wise |
+| Ristoranti | JustEat, Deliveroo, pizzeria, trattoria, enoteca, birreria, 35+ local patterns |
+| Caffe | `\bbar\b`, gelateria, pasticceria, panificio, 18+ local patterns |
+| Spesa | Conad, Coop, Esselunga, Lidl, macelleria |
+| Shopping | Amazon, Zalando, IKEA, Gutteridge, 20+ patterns |
+| Viaggi | Booking, Airbnb, hotel, Trainline, bagno (beach), bowling, cinema |
+| Trasporti | Trenitalia, Italo, Uber, Telepass, parcheggio, benzina |
+| Gatti | Arcaplanet, Zooplus, veterinario, Arcacat |
+| Psicologo | Unobravo, Serenis |
+| Palestra | 21 Lab, McFit, Virgin Active |
+
+## Database Schema (v4.0)
 
 ```sql
--- Categories (19 defaults including Finanziamenti, Risparmi Automatici)
+-- Core tables (existing)
 categories(id, name, icon, color)
-
--- Transactions (SHA256 id for deduplication)
-transactions(id, date, description, amount, category_id, bank, account_type, type, balance)
-
--- Budgets (per category per month)
-budgets(id, category_id, amount, month)
-
--- User profile (singleton)
+transactions(id, date, description, amount, category_id, bank, account_type, type, balance, is_recurring, recurring_expense_id)
+budgets(id, category_id, amount, month, source, auto_generated)
 user_profile(id, income_type, monthly_net_income, risk_tolerance, financial_knowledge, coaching_style)
-
--- Debt tracking
-debts(id, name, type, original_amount, current_balance, interest_rate, monthly_payment, payment_day, is_active)
-
--- Financial goals
+debts(id, name, type, original_amount, current_balance, interest_rate, monthly_payment, payment_day, start_date, is_active)
 goals(id, name, type, target_amount, current_amount, priority, status, target_date)
-
--- AI insights/alerts
 insights(id, type, category, severity, title, message, action_text, is_read, is_dismissed)
-
--- Monthly KPI snapshots
 kpi_history(id, month, net_worth, total_debt, savings_rate, dti_ratio, emergency_fund_months)
-
--- AI coach chat history
 chat_history(id, session_id, role, content, tokens_used)
+
+-- New v4.0 tables
+decisions(id, decision_date, type, category_id, debt_id, recurring_expense_id, amount, description, status, expected_impact_monthly, expected_impact_payoff_days, actual_impact_monthly, actual_impact_verified, verification_date, insight_id)
+
+debt_monthly_plans(id, month, debt_id, planned_payment, extra_payment, actual_payment, order_in_strategy, strategy_type, projected_payoff_date, status)
+
+recurring_expenses(id, pattern_name, category_id, frequency, avg_amount, last_amount, trend_percent, first_occurrence, last_occurrence, occurrence_count, provider, is_essential, is_active, optimization_status, optimization_suggestion, estimated_savings_monthly, confidence_score)
+
+transaction_recurring_links(transaction_id, recurring_expense_id, match_confidence)
+
+daily_actions(id, action_date, priority, title, description, action_type, impact_type, estimated_impact_monthly, estimated_impact_payoff_days, status, completed_at, decision_id, insight_id, recurring_expense_id, debt_id, category_id)
+
+baseline_snapshots(id, snapshot_month, category_id, avg_spending_3mo, avg_income_3mo, avg_savings_3mo, projected_payoff_months, projected_payoff_date)
 ```
 
 ## Design System
 
-Mobile-first dark theme with emerald green (#10B981) accent. Key color tokens in `src/styles.py`:
+Mobile-first dark theme with emerald green (#10B981) accent.
+
+**Colors** (`src/styles.py`):
 - Background: #0A0A0A (primary), #141414 (cards), #1E1E1E (tertiary)
 - Text: #FAFAFA (primary), #A1A1AA (secondary), #71717A (muted)
 - Semantic: income (#22C55E), expense (#EF4444), warning (#F59E0B), accent (#10B981)
 
-Layout: Centered (not wide), collapsed sidebar, bottom tab navigation with fixed positioning.
+**Layout**: Centered, collapsed sidebar, fixed bottom tab navigation.
 
 ## Key Patterns
 
-- **Session state**: `active_tab` for navigation, `chat_messages` for coach history, `money_subtab` for Money tab
-- **Data loading**: `load_dashboard_data()` cached function loads all data at once
-- **Custom components**: HTML rendered via `st.markdown(unsafe_allow_html=True)` using template functions from styles.py
-- **Amount convention**: Positive = income, negative = expense
-- **Date format**: YYYY-MM-DD internally, localized display
-- **Financial phases**: "Debt Payoff" (has debts) or "Wealth Building" (debt-free)
+- **Session state**: `active_tab`, `chat_messages`, `money_subtab`
+- **Data loading**: `load_dashboard_data()` cached function
+- **Custom components**: HTML via `st.markdown(unsafe_allow_html=True)`
+- **Amount convention**: Positive = income, Negative = expense
+- **KPI fallback**: Uses `user_profile.monthly_net_income` when transaction income < 50% of expected
+- **Financial phases**: "Debt Payoff" or "Wealth Building"
 
-## Financial Health Score Algorithm
+## Financial Health Score
 
 Calculated in `analytics.py:calculate_financial_health_score()`:
-- **Savings Rate (25 pts)**: 20%+ = 25, 10% = 15, 0% = 0
-- **DTI Ratio (25 pts)**: <20% = 25, <36% = 15, >50% = 0
-- **Emergency Fund (25 pts)**: 6+ months = 25, 3 months = 15, 0 = 0
-- **Net Worth Trend (25 pts)**: Positive = 25, Flat = 10, Negative = 0
+- Savings Rate (25 pts): 20%+ = 25, 10% = 15, 0% = 0
+- DTI Ratio (25 pts): <20% = 25, <36% = 15, >50% = 0
+- Emergency Fund (25 pts): 6+ months = 25, 3 = 15, 0 = 0
+- Net Worth Trend (25 pts): Positive = 25, Flat = 10, Negative = 0
 
 Grades: A (80+), B (65+), C (50+), D (35+), F (<35)
-
-## Debt Payoff Strategies
-
-Both implemented in `analytics.py`:
-- **Avalanche**: Highest interest rate first (saves most money)
-- **Snowball**: Smallest balance first (psychological wins)
-
-`compare_payoff_strategies()` returns total months, total interest, and recommendation.
 
 ## Adding New Features
 
 ### New Categorization Rules
-Edit `src/ai/categorizer.py` - add to provider lists or pattern lists.
+Edit `src/ai/categorizer.py` - add patterns to appropriate `*_PATTERNS` list.
 
 ### New Database Tables
 1. Add CREATE TABLE to SCHEMA_SQL in `database.py`
 2. Add CRUD functions following existing patterns
-3. Run `init_db()` to create tables
+3. Optionally add repository class in `src/repositories/`
 
 ### New UI Components
 1. Add template function in `styles.py` returning HTML string
@@ -168,9 +172,26 @@ MoneyMind/
 │   ├── styles.py             # Design system and components
 │   ├── utils.py              # Utilities
 │   ├── ai/
-│   │   ├── categorizer.py    # Transaction categorization
+│   │   ├── categorizer.py    # Transaction categorization (100+ patterns)
 │   │   ├── advisor.py        # AI coach (Opus 4.5)
+│   │   ├── insight_engine.py # Proactive insights
+│   │   ├── action_planner.py # Daily action generation
+│   │   ├── recurring_optimizer.py # Recurring expense optimization
 │   │   └── reporter.py       # Monthly reports (Sonnet)
+│   ├── core_finance/
+│   │   ├── baseline.py       # Baseline calculator
+│   │   ├── debt_planner.py   # Debt payment planning
+│   │   ├── budget_generator.py # Auto budget generation
+│   │   └── replanner.py      # Monthly re-planning
+│   ├── repositories/
+│   │   ├── base.py           # Abstract base
+│   │   ├── transaction_repository.py
+│   │   ├── debt_repository.py
+│   │   ├── budget_repository.py
+│   │   ├── recurring_repository.py
+│   │   ├── decision_repository.py
+│   │   ├── action_repository.py
+│   │   └── baseline_repository.py
 │   └── parsers/
 │       ├── revolut.py        # Revolut CSV parser
 │       └── illimity.py       # Illimity XLSX parser
