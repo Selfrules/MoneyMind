@@ -1,13 +1,13 @@
 # ============================================================================
-# MoneyMind Streamlit Configuration
-# Custom Dark Theme for Financial Dashboard
+# MoneyMind v3.0 Streamlit Configuration
+# Warm Coral Theme - AI-First, Mobile-Native
 # ============================================================================
 
 # ----------------------------------------------------------------------------
 # Server Configuration
 # ----------------------------------------------------------------------------
 [server]
-enableStaticServing = false
+headless = true
 
 # ----------------------------------------------------------------------------
 # Browser Configuration
@@ -20,23 +20,24 @@ gatherUsageStats = false
 # ----------------------------------------------------------------------------
 [client]
 showErrorDetails = true
-toolbarMode = "minimal"
 
 # ============================================================================
-# THEME CONFIGURATION - Custom Dark Theme
+# THEME CONFIGURATION - Warm Coral Theme v3.0
 # ============================================================================
 # Color Palette:
-#   - Dark Background:     #0F0F0F (near black)
-#   - Card/Secondary:      #1A1A1A
-#   - Text Primary:        #FAFAFA
-#   - Accent/Primary:      #10B981 (emerald green)
+#   - Background:      #0A0A0B (near-black, warmer)
+#   - Card/Secondary:  #151517
+#   - Text Primary:    #FAFAFA
+#   - Accent/Primary:  #FF6B6B (warm coral)
+#   - Income:          #4ADE80 (green)
+#   - Expense:         #FF6B6B (coral)
 # ============================================================================
 
 [theme]
 base = "dark"
-primaryColor = "#10B981"
-backgroundColor = "#0F0F0F"
-secondaryBackgroundColor = "#1A1A1A"
+primaryColor = "#FF6B6B"
+backgroundColor = "#0A0A0B"
+secondaryBackgroundColor = "#151517"
 textColor = "#FAFAFA"
 font = "sans serif"
 

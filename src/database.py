@@ -36,6 +36,8 @@ DEFAULT_CATEGORIES = [
     ("Caffe", "\u2615", "#795548"),              # Coffee
     ("Barbiere", "\U0001F488", "#607D8B"),       # Barber pole
     ("Trasferimenti", "\U0001F504", "#9E9E9E"), # Arrows circle
+    ("Finanziamenti", "\U0001F4B3", "#E53935"),  # Credit card - loans/financing
+    ("Risparmi Automatici", "\U0001F416", "#10B981"),  # Piggy bank - Revolut roundups
     ("Altro", "\U0001F4E6", "#757575"),          # Package
 ]
 
@@ -72,10 +74,252 @@ CREATE TABLE IF NOT EXISTS budgets (
     UNIQUE(category_id, month)
 );
 
+-- User profile and financial preferences
+CREATE TABLE IF NOT EXISTS user_profile (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    income_type TEXT NOT NULL DEFAULT 'employed',
+    monthly_net_income REAL,
+    risk_tolerance TEXT DEFAULT 'moderate',
+    financial_knowledge TEXT DEFAULT 'beginner',
+    coaching_style TEXT DEFAULT 'guided',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Individual debt tracking
+CREATE TABLE IF NOT EXISTS debts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'personal_loan',
+    original_amount REAL NOT NULL,
+    current_balance REAL NOT NULL,
+    interest_rate REAL,
+    monthly_payment REAL,
+    payment_day INTEGER,
+    start_date DATE,
+    expected_end_date DATE,
+    is_active INTEGER DEFAULT 1,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Financial goals
+CREATE TABLE IF NOT EXISTS goals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    target_amount REAL NOT NULL,
+    current_amount REAL DEFAULT 0,
+    priority INTEGER DEFAULT 1,
+    status TEXT DEFAULT 'active',
+    target_date DATE,
+    monthly_contribution REAL,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- AI-generated insights and alerts
+CREATE TABLE IF NOT EXISTS insights (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL,
+    category TEXT,
+    severity TEXT DEFAULT 'info',
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    action_text TEXT,
+    data_json TEXT,
+    is_read INTEGER DEFAULT 0,
+    is_dismissed INTEGER DEFAULT 0,
+    expires_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Monthly KPI history for trend tracking
+CREATE TABLE IF NOT EXISTS kpi_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    month TEXT NOT NULL UNIQUE,
+    net_worth REAL,
+    total_debt REAL,
+    total_assets REAL,
+    savings_rate REAL,
+    dti_ratio REAL,
+    emergency_fund_months REAL,
+    total_income REAL,
+    total_expenses REAL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- AI coach chat history
+CREATE TABLE IF NOT EXISTS chat_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL,
+    role TEXT NOT NULL,
+    content TEXT NOT NULL,
+    tokens_used INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ============================================================================
+-- MoneyMind v4.0 - New Tables for Directive Assistant
+-- ============================================================================
+
+-- User decisions with impact tracking (Pillar 2)
+CREATE TABLE IF NOT EXISTS decisions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    decision_date DATE NOT NULL,
+    type TEXT NOT NULL,  -- 'taglio_spesa', 'aumento_rata', 'cambio_fornitore', 'cancella_abbonamento', 'nuovo_budget'
+    category_id INTEGER,
+    debt_id INTEGER,
+    recurring_expense_id INTEGER,
+    amount REAL,
+    description TEXT,
+    status TEXT DEFAULT 'pending',  -- 'pending', 'accepted', 'rejected', 'postponed', 'completed'
+    expected_impact_monthly REAL,  -- Expected monthly savings in EUR
+    expected_impact_payoff_days INTEGER,  -- Days earlier to debt freedom
+    actual_impact_monthly REAL,
+    actual_impact_verified INTEGER DEFAULT 0,
+    verification_date DATE,
+    verification_notes TEXT,
+    insight_id INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (category_id) REFERENCES categories(id),
+    FOREIGN KEY (debt_id) REFERENCES debts(id),
+    FOREIGN KEY (insight_id) REFERENCES insights(id)
+);
+
+-- Monthly debt payment plans (Pillar 1)
+CREATE TABLE IF NOT EXISTS debt_monthly_plans (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    month TEXT NOT NULL,
+    debt_id INTEGER NOT NULL,
+    planned_payment REAL NOT NULL,
+    extra_payment REAL DEFAULT 0,
+    actual_payment REAL,
+    order_in_strategy INTEGER,  -- 1 = first to pay off (highest priority)
+    strategy_type TEXT DEFAULT 'avalanche',  -- 'avalanche' or 'snowball'
+    projected_payoff_date DATE,
+    status TEXT DEFAULT 'planned',  -- 'planned', 'on_track', 'behind', 'ahead', 'completed'
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (debt_id) REFERENCES debts(id),
+    UNIQUE(month, debt_id)
+);
+
+-- Detected recurring expenses (Pillar 3)
+CREATE TABLE IF NOT EXISTS recurring_expenses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pattern_name TEXT NOT NULL,  -- e.g., "Netflix", "HERA Gas", "Agos Prestito"
+    category_id INTEGER NOT NULL,
+    frequency TEXT NOT NULL,  -- 'monthly', 'quarterly', 'annual'
+    avg_amount REAL,
+    min_amount REAL,
+    max_amount REAL,
+    last_amount REAL,
+    trend_percent REAL,  -- % change over last 6 months
+    first_occurrence DATE,
+    last_occurrence DATE,
+    occurrence_count INTEGER DEFAULT 0,
+    provider TEXT,  -- Extracted provider name
+    is_essential INTEGER DEFAULT 0,  -- 1 = necessary expense
+    is_active INTEGER DEFAULT 1,
+    optimization_status TEXT DEFAULT 'not_reviewed',  -- 'not_reviewed', 'reviewed', 'optimized', 'canceled', 'kept'
+    optimization_suggestion TEXT,  -- AI-generated suggestion
+    estimated_savings_monthly REAL,
+    confidence_score REAL,  -- 0.0-1.0 pattern detection confidence
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (category_id) REFERENCES categories(id)
+);
+
+-- Link transactions to recurring expense patterns
+CREATE TABLE IF NOT EXISTS transaction_recurring_links (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    transaction_id TEXT NOT NULL,
+    recurring_expense_id INTEGER NOT NULL,
+    match_confidence REAL,  -- 0.0-1.0 confidence this transaction matches pattern
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (transaction_id) REFERENCES transactions(id),
+    FOREIGN KEY (recurring_expense_id) REFERENCES recurring_expenses(id),
+    UNIQUE(transaction_id, recurring_expense_id)
+);
+
+-- Daily action tasks (Full Auto generation)
+CREATE TABLE IF NOT EXISTS daily_actions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    action_date DATE NOT NULL,
+    priority INTEGER DEFAULT 1,  -- 1 = highest priority
+    title TEXT NOT NULL,
+    description TEXT,
+    action_type TEXT,  -- 'review_subscription', 'increase_payment', 'cut_category', 'confirm_budget', 'check_anomaly'
+    impact_type TEXT,  -- 'savings', 'payoff_acceleration', 'budget_control'
+    estimated_impact_monthly REAL,  -- EUR saved per month
+    estimated_impact_payoff_days INTEGER,  -- Days closer to debt freedom
+    status TEXT DEFAULT 'pending',  -- 'pending', 'completed', 'dismissed', 'snoozed'
+    completed_at DATETIME,
+    snoozed_until DATE,
+    decision_id INTEGER,
+    insight_id INTEGER,
+    recurring_expense_id INTEGER,
+    debt_id INTEGER,
+    category_id INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (decision_id) REFERENCES decisions(id),
+    FOREIGN KEY (insight_id) REFERENCES insights(id),
+    FOREIGN KEY (recurring_expense_id) REFERENCES recurring_expenses(id),
+    FOREIGN KEY (debt_id) REFERENCES debts(id),
+    FOREIGN KEY (category_id) REFERENCES categories(id)
+);
+
+-- Baseline snapshots for comparison (3-month rolling averages)
+CREATE TABLE IF NOT EXISTS baseline_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snapshot_month TEXT NOT NULL,
+    category_id INTEGER,  -- NULL for overall metrics
+    metric_type TEXT NOT NULL,  -- 'spending', 'income', 'savings', 'payoff_projection'
+    avg_value_3mo REAL,  -- 3-month rolling average
+    calculation_start_month TEXT,
+    calculation_end_month TEXT,
+    projected_payoff_date DATE,  -- For payoff_projection type
+    projected_payoff_months INTEGER,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(snapshot_month, category_id, metric_type)
+);
+
+-- ============================================================================
+-- Indexes for v4.0 tables
+-- ============================================================================
+
 CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
 CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_bank ON transactions(bank);
 CREATE INDEX IF NOT EXISTS idx_budgets_month ON budgets(month);
+CREATE INDEX IF NOT EXISTS idx_debts_active ON debts(is_active);
+CREATE INDEX IF NOT EXISTS idx_goals_status ON goals(status);
+CREATE INDEX IF NOT EXISTS idx_insights_read ON insights(is_read, is_dismissed);
+CREATE INDEX IF NOT EXISTS idx_insights_type ON insights(type);
+CREATE INDEX IF NOT EXISTS idx_kpi_history_month ON kpi_history(month);
+CREATE INDEX IF NOT EXISTS idx_chat_session ON chat_history(session_id);
+
+-- v4.0 indexes
+CREATE INDEX IF NOT EXISTS idx_decisions_status ON decisions(status);
+CREATE INDEX IF NOT EXISTS idx_decisions_date ON decisions(decision_date);
+CREATE INDEX IF NOT EXISTS idx_decisions_type ON decisions(type);
+CREATE INDEX IF NOT EXISTS idx_debt_plans_month ON debt_monthly_plans(month);
+CREATE INDEX IF NOT EXISTS idx_debt_plans_debt ON debt_monthly_plans(debt_id);
+CREATE INDEX IF NOT EXISTS idx_recurring_active ON recurring_expenses(is_active);
+CREATE INDEX IF NOT EXISTS idx_recurring_category ON recurring_expenses(category_id);
+CREATE INDEX IF NOT EXISTS idx_recurring_provider ON recurring_expenses(provider);
+CREATE INDEX IF NOT EXISTS idx_tx_recurring_tx ON transaction_recurring_links(transaction_id);
+CREATE INDEX IF NOT EXISTS idx_tx_recurring_recurring ON transaction_recurring_links(recurring_expense_id);
+CREATE INDEX IF NOT EXISTS idx_daily_actions_date ON daily_actions(action_date);
+CREATE INDEX IF NOT EXISTS idx_daily_actions_status ON daily_actions(status);
+CREATE INDEX IF NOT EXISTS idx_baseline_month ON baseline_snapshots(snapshot_month);
+CREATE INDEX IF NOT EXISTS idx_baseline_type ON baseline_snapshots(metric_type);
 """
 
 
@@ -529,6 +773,1073 @@ def get_monthly_summary(month: str) -> dict:
             "net": 0,
             "transaction_count": 0
         }
+
+
+# ============================================================================
+# User Profile Functions
+# ============================================================================
+
+def get_user_profile() -> Optional[dict]:
+    """Get the user profile (singleton - only one profile)."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM user_profile ORDER BY id LIMIT 1")
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def save_user_profile(profile: dict) -> int:
+    """Create or update user profile."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        existing = get_user_profile()
+
+        if existing:
+            cursor.execute(
+                """
+                UPDATE user_profile SET
+                    income_type = ?,
+                    monthly_net_income = ?,
+                    risk_tolerance = ?,
+                    financial_knowledge = ?,
+                    coaching_style = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (
+                    profile.get("income_type", "employed"),
+                    profile.get("monthly_net_income"),
+                    profile.get("risk_tolerance", "moderate"),
+                    profile.get("financial_knowledge", "beginner"),
+                    profile.get("coaching_style", "guided"),
+                    existing["id"]
+                )
+            )
+            return existing["id"]
+        else:
+            cursor.execute(
+                """
+                INSERT INTO user_profile
+                (income_type, monthly_net_income, risk_tolerance, financial_knowledge, coaching_style)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    profile.get("income_type", "employed"),
+                    profile.get("monthly_net_income"),
+                    profile.get("risk_tolerance", "moderate"),
+                    profile.get("financial_knowledge", "beginner"),
+                    profile.get("coaching_style", "guided")
+                )
+            )
+            return cursor.lastrowid
+
+
+# ============================================================================
+# Debt Functions
+# ============================================================================
+
+def get_debts(active_only: bool = True) -> list[dict]:
+    """Get all debts, optionally filtering by active status."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        query = "SELECT * FROM debts"
+        if active_only:
+            query += " WHERE is_active = 1"
+        query += " ORDER BY interest_rate DESC, current_balance DESC"
+        cursor.execute(query)
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def get_debt_by_id(debt_id: int) -> Optional[dict]:
+    """Get a single debt by ID."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM debts WHERE id = ?", (debt_id,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def add_debt(debt: dict) -> int:
+    """Add a new debt."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO debts
+            (name, type, original_amount, current_balance, interest_rate,
+             monthly_payment, payment_day, start_date, expected_end_date, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                debt["name"],
+                debt.get("type", "personal_loan"),
+                debt["original_amount"],
+                debt["current_balance"],
+                debt.get("interest_rate"),
+                debt.get("monthly_payment"),
+                debt.get("payment_day"),
+                debt.get("start_date"),
+                debt.get("expected_end_date"),
+                debt.get("notes")
+            )
+        )
+        return cursor.lastrowid
+
+
+def update_debt(debt_id: int, updates: dict) -> bool:
+    """Update a debt record."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+
+        # Build dynamic update query
+        set_clauses = []
+        values = []
+        for key, value in updates.items():
+            if key not in ("id", "created_at"):
+                set_clauses.append(f"{key} = ?")
+                values.append(value)
+
+        if not set_clauses:
+            return False
+
+        set_clauses.append("updated_at = CURRENT_TIMESTAMP")
+        values.append(debt_id)
+
+        cursor.execute(
+            f"UPDATE debts SET {', '.join(set_clauses)} WHERE id = ?",
+            values
+        )
+        return cursor.rowcount > 0
+
+
+def delete_debt(debt_id: int) -> bool:
+    """Delete a debt (or mark as inactive)."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE debts SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (debt_id,)
+        )
+        return cursor.rowcount > 0
+
+
+def get_total_debt() -> float:
+    """Get total current debt balance."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT COALESCE(SUM(current_balance), 0) as total FROM debts WHERE is_active = 1"
+        )
+        return cursor.fetchone()["total"]
+
+
+# ============================================================================
+# Goals Functions
+# ============================================================================
+
+def get_goals(status: str = None) -> list[dict]:
+    """Get all goals, optionally filtering by status."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        query = "SELECT * FROM goals"
+        params = []
+        if status:
+            query += " WHERE status = ?"
+            params.append(status)
+        query += " ORDER BY priority ASC, created_at ASC"
+        cursor.execute(query, params)
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def get_goal_by_id(goal_id: int) -> Optional[dict]:
+    """Get a single goal by ID."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM goals WHERE id = ?", (goal_id,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def add_goal(goal: dict) -> int:
+    """Add a new financial goal."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO goals
+            (name, type, target_amount, current_amount, priority, status,
+             target_date, monthly_contribution, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                goal["name"],
+                goal["type"],
+                goal["target_amount"],
+                goal.get("current_amount", 0),
+                goal.get("priority", 1),
+                goal.get("status", "active"),
+                goal.get("target_date"),
+                goal.get("monthly_contribution"),
+                goal.get("notes")
+            )
+        )
+        return cursor.lastrowid
+
+
+def update_goal(goal_id: int, updates: dict) -> bool:
+    """Update a goal record."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+
+        set_clauses = []
+        values = []
+        for key, value in updates.items():
+            if key not in ("id", "created_at"):
+                set_clauses.append(f"{key} = ?")
+                values.append(value)
+
+        if not set_clauses:
+            return False
+
+        set_clauses.append("updated_at = CURRENT_TIMESTAMP")
+        values.append(goal_id)
+
+        cursor.execute(
+            f"UPDATE goals SET {', '.join(set_clauses)} WHERE id = ?",
+            values
+        )
+        return cursor.rowcount > 0
+
+
+def delete_goal(goal_id: int) -> bool:
+    """Delete a goal."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM goals WHERE id = ?", (goal_id,))
+        return cursor.rowcount > 0
+
+
+# ============================================================================
+# Insights Functions
+# ============================================================================
+
+def get_insights(unread_only: bool = False, limit: int = 50) -> list[dict]:
+    """Get insights/alerts, optionally filtering to unread only."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        query = """
+            SELECT * FROM insights
+            WHERE is_dismissed = 0
+            AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+        """
+        if unread_only:
+            query += " AND is_read = 0"
+        query += " ORDER BY created_at DESC LIMIT ?"
+        cursor.execute(query, (limit,))
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def add_insight(insight: dict) -> int:
+    """Add a new insight/alert."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO insights
+            (type, category, severity, title, message, action_text, data_json, expires_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                insight["type"],
+                insight.get("category"),
+                insight.get("severity", "info"),
+                insight["title"],
+                insight["message"],
+                insight.get("action_text"),
+                insight.get("data_json"),
+                insight.get("expires_at")
+            )
+        )
+        return cursor.lastrowid
+
+
+def mark_insight_read(insight_id: int) -> bool:
+    """Mark an insight as read."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE insights SET is_read = 1 WHERE id = ?",
+            (insight_id,)
+        )
+        return cursor.rowcount > 0
+
+
+def dismiss_insight(insight_id: int) -> bool:
+    """Dismiss an insight."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE insights SET is_dismissed = 1 WHERE id = ?",
+            (insight_id,)
+        )
+        return cursor.rowcount > 0
+
+
+def get_unread_insight_count() -> int:
+    """Get count of unread insights."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT COUNT(*) as count FROM insights
+            WHERE is_read = 0 AND is_dismissed = 0
+            AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+            """
+        )
+        return cursor.fetchone()["count"]
+
+
+# ============================================================================
+# KPI History Functions
+# ============================================================================
+
+def save_kpi_snapshot(month: str, kpis: dict) -> int:
+    """Save a monthly KPI snapshot."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO kpi_history
+            (month, net_worth, total_debt, total_assets, savings_rate,
+             dti_ratio, emergency_fund_months, total_income, total_expenses)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(month) DO UPDATE SET
+                net_worth = excluded.net_worth,
+                total_debt = excluded.total_debt,
+                total_assets = excluded.total_assets,
+                savings_rate = excluded.savings_rate,
+                dti_ratio = excluded.dti_ratio,
+                emergency_fund_months = excluded.emergency_fund_months,
+                total_income = excluded.total_income,
+                total_expenses = excluded.total_expenses
+            """,
+            (
+                month,
+                kpis.get("net_worth"),
+                kpis.get("total_debt"),
+                kpis.get("total_assets"),
+                kpis.get("savings_rate"),
+                kpis.get("dti_ratio"),
+                kpis.get("emergency_fund_months"),
+                kpis.get("total_income"),
+                kpis.get("total_expenses")
+            )
+        )
+        return cursor.lastrowid
+
+
+def get_kpi_history(months: int = 12) -> list[dict]:
+    """Get KPI history for the last N months."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT * FROM kpi_history
+            ORDER BY month DESC
+            LIMIT ?
+            """,
+            (months,)
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def get_kpi_for_month(month: str) -> Optional[dict]:
+    """Get KPI snapshot for a specific month."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM kpi_history WHERE month = ?", (month,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+# ============================================================================
+# Chat History Functions
+# ============================================================================
+
+def add_chat_message(session_id: str, role: str, content: str, tokens: int = None) -> int:
+    """Add a chat message to history."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO chat_history (session_id, role, content, tokens_used)
+            VALUES (?, ?, ?, ?)
+            """,
+            (session_id, role, content, tokens)
+        )
+        return cursor.lastrowid
+
+
+def get_chat_history(session_id: str, limit: int = 50) -> list[dict]:
+    """Get chat history for a session."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT * FROM chat_history
+            WHERE session_id = ?
+            ORDER BY created_at ASC
+            LIMIT ?
+            """,
+            (session_id, limit)
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def get_chat_sessions(limit: int = 20) -> list[dict]:
+    """Get list of chat sessions with latest message preview."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT
+                session_id,
+                MIN(created_at) as started_at,
+                MAX(created_at) as last_message_at,
+                COUNT(*) as message_count
+            FROM chat_history
+            GROUP BY session_id
+            ORDER BY last_message_at DESC
+            LIMIT ?
+            """,
+            (limit,)
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def delete_chat_session(session_id: str) -> bool:
+    """Delete all messages in a chat session."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM chat_history WHERE session_id = ?", (session_id,))
+        return cursor.rowcount > 0
+
+
+# ============================================================================
+# MoneyMind v4.0 - Decision Functions
+# ============================================================================
+
+def add_decision(decision: dict) -> int:
+    """Add a new decision record."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO decisions
+            (decision_date, type, category_id, debt_id, recurring_expense_id,
+             amount, description, status, expected_impact_monthly,
+             expected_impact_payoff_days, insight_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                decision["decision_date"],
+                decision["type"],
+                decision.get("category_id"),
+                decision.get("debt_id"),
+                decision.get("recurring_expense_id"),
+                decision.get("amount"),
+                decision.get("description"),
+                decision.get("status", "pending"),
+                decision.get("expected_impact_monthly"),
+                decision.get("expected_impact_payoff_days"),
+                decision.get("insight_id")
+            )
+        )
+        return cursor.lastrowid
+
+
+def update_decision(decision_id: int, updates: dict) -> bool:
+    """Update a decision record."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        set_clauses = []
+        values = []
+        for key, value in updates.items():
+            if key not in ("id", "created_at"):
+                set_clauses.append(f"{key} = ?")
+                values.append(value)
+        if not set_clauses:
+            return False
+        set_clauses.append("updated_at = CURRENT_TIMESTAMP")
+        values.append(decision_id)
+        cursor.execute(
+            f"UPDATE decisions SET {', '.join(set_clauses)} WHERE id = ?",
+            values
+        )
+        return cursor.rowcount > 0
+
+
+def get_decisions(status: str = None, limit: int = 50) -> list[dict]:
+    """Get decisions, optionally filtered by status."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        query = "SELECT * FROM decisions WHERE 1=1"
+        params = []
+        if status:
+            query += " AND status = ?"
+            params.append(status)
+        query += " ORDER BY decision_date DESC LIMIT ?"
+        params.append(limit)
+        cursor.execute(query, params)
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def get_pending_decisions() -> list[dict]:
+    """Get all pending decisions."""
+    return get_decisions(status="pending")
+
+
+def get_decision_by_id(decision_id: int) -> Optional[dict]:
+    """Get a single decision by ID."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM decisions WHERE id = ?", (decision_id,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def verify_decision_impact(decision_id: int, actual_impact: float, notes: str = None) -> bool:
+    """Mark a decision as verified with actual impact."""
+    return update_decision(decision_id, {
+        "actual_impact_monthly": actual_impact,
+        "actual_impact_verified": 1,
+        "verification_date": datetime.now().strftime("%Y-%m-%d"),
+        "verification_notes": notes
+    })
+
+
+# ============================================================================
+# MoneyMind v4.0 - Debt Monthly Plan Functions
+# ============================================================================
+
+def create_debt_monthly_plan(plan: dict) -> int:
+    """Create or update a monthly debt payment plan."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO debt_monthly_plans
+            (month, debt_id, planned_payment, extra_payment, order_in_strategy,
+             strategy_type, projected_payoff_date, status, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(month, debt_id) DO UPDATE SET
+                planned_payment = excluded.planned_payment,
+                extra_payment = excluded.extra_payment,
+                order_in_strategy = excluded.order_in_strategy,
+                strategy_type = excluded.strategy_type,
+                projected_payoff_date = excluded.projected_payoff_date,
+                status = excluded.status,
+                notes = excluded.notes,
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            (
+                plan["month"],
+                plan["debt_id"],
+                plan["planned_payment"],
+                plan.get("extra_payment", 0),
+                plan.get("order_in_strategy"),
+                plan.get("strategy_type", "avalanche"),
+                plan.get("projected_payoff_date"),
+                plan.get("status", "planned"),
+                plan.get("notes")
+            )
+        )
+        return cursor.lastrowid
+
+
+def get_debt_plans_for_month(month: str) -> list[dict]:
+    """Get all debt payment plans for a specific month."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT dmp.*, d.name as debt_name, d.current_balance, d.interest_rate
+            FROM debt_monthly_plans dmp
+            JOIN debts d ON dmp.debt_id = d.id
+            WHERE dmp.month = ?
+            ORDER BY dmp.order_in_strategy ASC
+            """,
+            (month,)
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def update_plan_actual_payment(month: str, debt_id: int, actual_payment: float) -> bool:
+    """Update actual payment for a debt plan."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE debt_monthly_plans
+            SET actual_payment = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE month = ? AND debt_id = ?
+            """,
+            (actual_payment, month, debt_id)
+        )
+        return cursor.rowcount > 0
+
+
+def update_plan_status(month: str, debt_id: int, status: str) -> bool:
+    """Update status of a debt plan (on_track, behind, ahead, completed)."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE debt_monthly_plans
+            SET status = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE month = ? AND debt_id = ?
+            """,
+            (status, month, debt_id)
+        )
+        return cursor.rowcount > 0
+
+
+def get_debt_plan_history(debt_id: int, months: int = 12) -> list[dict]:
+    """Get payment plan history for a specific debt."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT * FROM debt_monthly_plans
+            WHERE debt_id = ?
+            ORDER BY month DESC
+            LIMIT ?
+            """,
+            (debt_id, months)
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+
+# ============================================================================
+# MoneyMind v4.0 - Recurring Expense Functions
+# ============================================================================
+
+def add_recurring_expense(recurring: dict) -> int:
+    """Add a new recurring expense pattern."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO recurring_expenses
+            (pattern_name, category_id, frequency, avg_amount, min_amount, max_amount,
+             last_amount, trend_percent, first_occurrence, last_occurrence,
+             occurrence_count, provider, is_essential, confidence_score)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                recurring["pattern_name"],
+                recurring["category_id"],
+                recurring["frequency"],
+                recurring.get("avg_amount"),
+                recurring.get("min_amount"),
+                recurring.get("max_amount"),
+                recurring.get("last_amount"),
+                recurring.get("trend_percent"),
+                recurring.get("first_occurrence"),
+                recurring.get("last_occurrence"),
+                recurring.get("occurrence_count", 0),
+                recurring.get("provider"),
+                recurring.get("is_essential", 0),
+                recurring.get("confidence_score")
+            )
+        )
+        return cursor.lastrowid
+
+
+def update_recurring_expense(recurring_id: int, updates: dict) -> bool:
+    """Update a recurring expense record."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        set_clauses = []
+        values = []
+        for key, value in updates.items():
+            if key not in ("id", "created_at"):
+                set_clauses.append(f"{key} = ?")
+                values.append(value)
+        if not set_clauses:
+            return False
+        set_clauses.append("updated_at = CURRENT_TIMESTAMP")
+        values.append(recurring_id)
+        cursor.execute(
+            f"UPDATE recurring_expenses SET {', '.join(set_clauses)} WHERE id = ?",
+            values
+        )
+        return cursor.rowcount > 0
+
+
+def get_recurring_expenses(active_only: bool = True, category_id: int = None) -> list[dict]:
+    """Get recurring expenses with optional filters."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        query = """
+            SELECT re.*, c.name as category_name, c.icon as category_icon
+            FROM recurring_expenses re
+            JOIN categories c ON re.category_id = c.id
+            WHERE 1=1
+        """
+        params = []
+        if active_only:
+            query += " AND re.is_active = 1"
+        if category_id:
+            query += " AND re.category_id = ?"
+            params.append(category_id)
+        query += " ORDER BY re.avg_amount DESC"
+        cursor.execute(query, params)
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def get_recurring_expense_by_id(recurring_id: int) -> Optional[dict]:
+    """Get a single recurring expense by ID."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT re.*, c.name as category_name, c.icon as category_icon
+            FROM recurring_expenses re
+            JOIN categories c ON re.category_id = c.id
+            WHERE re.id = ?
+            """,
+            (recurring_id,)
+        )
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def set_recurring_optimization(recurring_id: int, status: str,
+                                suggestion: str = None, savings: float = None) -> bool:
+    """Set optimization status and suggestion for a recurring expense."""
+    updates = {"optimization_status": status}
+    if suggestion:
+        updates["optimization_suggestion"] = suggestion
+    if savings is not None:
+        updates["estimated_savings_monthly"] = savings
+    return update_recurring_expense(recurring_id, updates)
+
+
+def link_transaction_to_recurring(transaction_id: str, recurring_id: int,
+                                   confidence: float = 1.0) -> bool:
+    """Link a transaction to a recurring expense pattern."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                INSERT OR REPLACE INTO transaction_recurring_links
+                (transaction_id, recurring_expense_id, match_confidence)
+                VALUES (?, ?, ?)
+                """,
+                (transaction_id, recurring_id, confidence)
+            )
+            return True
+        except Exception:
+            return False
+
+
+def get_transactions_for_recurring(recurring_id: int, limit: int = 20) -> list[dict]:
+    """Get transactions linked to a recurring expense."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT t.*, trl.match_confidence
+            FROM transactions t
+            JOIN transaction_recurring_links trl ON t.id = trl.transaction_id
+            WHERE trl.recurring_expense_id = ?
+            ORDER BY t.date DESC
+            LIMIT ?
+            """,
+            (recurring_id, limit)
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def get_recurring_summary() -> dict:
+    """Get summary of recurring expenses by category type."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT
+                c.name as category_name,
+                COUNT(re.id) as count,
+                SUM(re.avg_amount) as total_monthly,
+                SUM(CASE WHEN re.is_essential = 1 THEN re.avg_amount ELSE 0 END) as essential_monthly,
+                SUM(CASE WHEN re.is_essential = 0 THEN re.avg_amount ELSE 0 END) as non_essential_monthly
+            FROM recurring_expenses re
+            JOIN categories c ON re.category_id = c.id
+            WHERE re.is_active = 1
+            GROUP BY c.name
+            ORDER BY total_monthly DESC
+            """
+        )
+        categories = [dict(row) for row in cursor.fetchall()]
+
+        total = sum(c["total_monthly"] or 0 for c in categories)
+        essential = sum(c["essential_monthly"] or 0 for c in categories)
+
+        return {
+            "total_monthly": total,
+            "essential_monthly": essential,
+            "non_essential_monthly": total - essential,
+            "by_category": categories
+        }
+
+
+# ============================================================================
+# MoneyMind v4.0 - Daily Actions Functions
+# ============================================================================
+
+def create_daily_action(action: dict) -> int:
+    """Create a new daily action task."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO daily_actions
+            (action_date, priority, title, description, action_type, impact_type,
+             estimated_impact_monthly, estimated_impact_payoff_days, status,
+             decision_id, insight_id, recurring_expense_id, debt_id, category_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                action["action_date"],
+                action.get("priority", 1),
+                action["title"],
+                action.get("description"),
+                action.get("action_type"),
+                action.get("impact_type"),
+                action.get("estimated_impact_monthly"),
+                action.get("estimated_impact_payoff_days"),
+                action.get("status", "pending"),
+                action.get("decision_id"),
+                action.get("insight_id"),
+                action.get("recurring_expense_id"),
+                action.get("debt_id"),
+                action.get("category_id")
+            )
+        )
+        return cursor.lastrowid
+
+
+def get_today_actions(date: str = None) -> list[dict]:
+    """Get pending actions for today (or specified date)."""
+    if date is None:
+        from datetime import datetime
+        date = datetime.now().strftime("%Y-%m-%d")
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT da.*, c.name as category_name, d.name as debt_name,
+                   re.pattern_name as recurring_name
+            FROM daily_actions da
+            LEFT JOIN categories c ON da.category_id = c.id
+            LEFT JOIN debts d ON da.debt_id = d.id
+            LEFT JOIN recurring_expenses re ON da.recurring_expense_id = re.id
+            WHERE da.action_date = ?
+            AND da.status = 'pending'
+            ORDER BY da.priority ASC
+            LIMIT 3
+            """,
+            (date,)
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def complete_daily_action(action_id: int, decision_id: int = None) -> bool:
+    """Mark a daily action as completed."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE daily_actions
+            SET status = 'completed', completed_at = CURRENT_TIMESTAMP, decision_id = ?
+            WHERE id = ?
+            """,
+            (decision_id, action_id)
+        )
+        return cursor.rowcount > 0
+
+
+def dismiss_daily_action(action_id: int) -> bool:
+    """Dismiss a daily action (user chose not to act)."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE daily_actions SET status = 'dismissed' WHERE id = ?",
+            (action_id,)
+        )
+        return cursor.rowcount > 0
+
+
+def snooze_daily_action(action_id: int, snooze_until: str) -> bool:
+    """Snooze a daily action until a future date."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE daily_actions
+            SET status = 'snoozed', snoozed_until = ?
+            WHERE id = ?
+            """,
+            (snooze_until, action_id)
+        )
+        return cursor.rowcount > 0
+
+
+def get_pending_action_count(date: str = None) -> int:
+    """Get count of pending actions for badge display."""
+    if date is None:
+        from datetime import datetime
+        date = datetime.now().strftime("%Y-%m-%d")
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT COUNT(*) as count FROM daily_actions
+            WHERE action_date <= ? AND status = 'pending'
+            """,
+            (date,)
+        )
+        return cursor.fetchone()["count"]
+
+
+def get_action_history(days: int = 30) -> list[dict]:
+    """Get action history for tracking completion rates."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT
+                action_date,
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+                SUM(CASE WHEN status = 'dismissed' THEN 1 ELSE 0 END) as dismissed
+            FROM daily_actions
+            WHERE action_date >= date('now', ? || ' days')
+            GROUP BY action_date
+            ORDER BY action_date DESC
+            """,
+            (f"-{days}",)
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+
+# ============================================================================
+# MoneyMind v4.0 - Baseline Snapshot Functions
+# ============================================================================
+
+def save_baseline_snapshot(snapshot: dict) -> int:
+    """Save or update a baseline snapshot."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO baseline_snapshots
+            (snapshot_month, category_id, metric_type, avg_value_3mo,
+             calculation_start_month, calculation_end_month,
+             projected_payoff_date, projected_payoff_months, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(snapshot_month, category_id, metric_type) DO UPDATE SET
+                avg_value_3mo = excluded.avg_value_3mo,
+                calculation_start_month = excluded.calculation_start_month,
+                calculation_end_month = excluded.calculation_end_month,
+                projected_payoff_date = excluded.projected_payoff_date,
+                projected_payoff_months = excluded.projected_payoff_months,
+                notes = excluded.notes
+            """,
+            (
+                snapshot["snapshot_month"],
+                snapshot.get("category_id"),
+                snapshot["metric_type"],
+                snapshot.get("avg_value_3mo"),
+                snapshot.get("calculation_start_month"),
+                snapshot.get("calculation_end_month"),
+                snapshot.get("projected_payoff_date"),
+                snapshot.get("projected_payoff_months"),
+                snapshot.get("notes")
+            )
+        )
+        return cursor.lastrowid
+
+
+def get_baseline_for_month(month: str, metric_type: str = None) -> list[dict]:
+    """Get baseline snapshots for a month."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        query = """
+            SELECT bs.*, c.name as category_name
+            FROM baseline_snapshots bs
+            LEFT JOIN categories c ON bs.category_id = c.id
+            WHERE bs.snapshot_month = ?
+        """
+        params = [month]
+        if metric_type:
+            query += " AND bs.metric_type = ?"
+            params.append(metric_type)
+        cursor.execute(query, params)
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def get_overall_baseline(month: str) -> Optional[dict]:
+    """Get overall baseline metrics (not category-specific)."""
+    baselines = get_baseline_for_month(month)
+    result = {}
+    for b in baselines:
+        if b.get("category_id") is None:
+            result[b["metric_type"]] = {
+                "avg_value_3mo": b["avg_value_3mo"],
+                "projected_payoff_date": b.get("projected_payoff_date"),
+                "projected_payoff_months": b.get("projected_payoff_months")
+            }
+    return result if result else None
+
+
+def compare_to_baseline(current_month: str, baseline_month: str) -> dict:
+    """Compare current month metrics to baseline."""
+    current = get_baseline_for_month(current_month)
+    baseline = get_baseline_for_month(baseline_month)
+
+    if not baseline:
+        return {"error": "No baseline data available"}
+
+    baseline_by_key = {
+        (b.get("category_id"), b["metric_type"]): b
+        for b in baseline
+    }
+
+    comparisons = []
+    for c in current:
+        key = (c.get("category_id"), c["metric_type"])
+        b = baseline_by_key.get(key)
+        if b and b["avg_value_3mo"] and c["avg_value_3mo"]:
+            delta = c["avg_value_3mo"] - b["avg_value_3mo"]
+            delta_percent = (delta / b["avg_value_3mo"]) * 100 if b["avg_value_3mo"] != 0 else 0
+            comparisons.append({
+                "metric_type": c["metric_type"],
+                "category_name": c.get("category_name"),
+                "current": c["avg_value_3mo"],
+                "baseline": b["avg_value_3mo"],
+                "delta": delta,
+                "delta_percent": delta_percent,
+                "improved": delta < 0 if c["metric_type"] == "spending" else delta > 0
+            })
+
+    return {"comparisons": comparisons}
+
+
+# Import datetime at module level for functions that need it
+from datetime import datetime
 
 
 # Initialize database when module is imported (optional - can be called explicitly)
