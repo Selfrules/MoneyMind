@@ -39,6 +39,8 @@ CATEGORIES = [
     "Trasferimenti",
     "Finanziamenti",
     "Risparmi Automatici",
+    "Intrattenimento",
+    "Regali",
     "Altro",
 ]
 
@@ -165,6 +167,8 @@ SUBSCRIPTION_PATTERNS = [
     r"nexi",  # Card fee
     r"wise",  # Service fee
     r"canone\s*piano",  # Revolut plan fee
+    r"gamma",  # AI slides tool
+    r"vtsup",  # Dating site subscription
 ]
 
 # Shopping patterns
@@ -246,6 +250,8 @@ RESTAURANT_PATTERNS = [
     r"ris8\s*dai",
     r"societa\s*agricola",
     r"societ.\s*agricola",
+    r"abraciami",  # Restaurant
+    r"chimon",  # Restaurant
 ]
 
 # Bar/Cafe patterns
@@ -268,6 +274,7 @@ CAFE_PATTERNS = [
     r"pompi\s*ginger",
     r"blue\s*hush",
     r"alleria",
+    r"gafiubar",  # Pub San Lucido
 ]
 
 # Veterinary/Pets patterns
@@ -322,6 +329,8 @@ HEALTH_PATTERNS = [
     r"dentista",
     r"oculista",
     r"ottico",
+    r"estetista",
+    r"simona\s*barbaglia",  # Estetista
 ]
 
 # Barber/Hair patterns
@@ -426,6 +435,14 @@ ENTERTAINMENT_PATTERNS = [
     r"komodo",
     r"chibagni",
     r"bp\s*private\s*club",
+    r"seminatore",  # PayPal transfer for entertainment
+]
+
+# Gifts patterns
+GIFTS_PATTERNS = [
+    r"regalo",
+    r"gift",
+    r"sp\s*creative\s*lab",  # Gift purchase
 ]
 
 
@@ -529,9 +546,13 @@ def _categorize_by_rules(transaction: dict) -> Optional[str]:
     if _match_pattern(description, TRAVEL_PATTERNS):
         return "Viaggi"
 
-    # Entertainment (bowling, cinema, events) - mapped to Viaggi (leisure)
+    # Entertainment (bowling, cinema, events)
     if _match_pattern(description, ENTERTAINMENT_PATTERNS):
-        return "Viaggi"
+        return "Intrattenimento"
+
+    # Gifts
+    if _match_pattern(description, GIFTS_PATTERNS):
+        return "Regali"
 
     # Buy now pay later (Revolut Paga in 3, repayments)
     if _match_pattern(description, BNPL_PATTERNS):
