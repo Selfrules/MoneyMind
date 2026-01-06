@@ -35,9 +35,11 @@ DEFAULT_CATEGORIES = [
     ("Viaggi", "\u2708\uFE0F", "#2196F3"),       # Airplane
     ("Caffe", "\u2615", "#795548"),              # Coffee
     ("Barbiere", "\U0001F488", "#607D8B"),       # Barber pole
-    ("Trasferimenti", "\U0001F504", "#9E9E9E"), # Arrows circle
+    ("Trasferimenti", "\U0001F504", "#9E9E9E"),  # Arrows circle
     ("Finanziamenti", "\U0001F4B3", "#E53935"),  # Credit card - loans/financing
     ("Risparmi Automatici", "\U0001F416", "#10B981"),  # Piggy bank - Revolut roundups
+    ("Intrattenimento", "\U0001F3AC", "#9C27B0"),  # Clapper board - entertainment
+    ("Regali", "\U0001F381", "#E91E63"),          # Gift - presents
     ("Altro", "\U0001F4E6", "#757575"),          # Package
 ]
 
@@ -320,6 +322,110 @@ CREATE INDEX IF NOT EXISTS idx_daily_actions_date ON daily_actions(action_date);
 CREATE INDEX IF NOT EXISTS idx_daily_actions_status ON daily_actions(status);
 CREATE INDEX IF NOT EXISTS idx_baseline_month ON baseline_snapshots(snapshot_month);
 CREATE INDEX IF NOT EXISTS idx_baseline_type ON baseline_snapshots(metric_type);
+
+-- ============================================================================
+-- MoneyMind v6.0 - Desktop Personal Finance Coach Tables
+-- ============================================================================
+
+-- Onboarding Profile (Fase Diagnosi)
+CREATE TABLE IF NOT EXISTS onboarding_profile (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    financial_freedom_goal TEXT,          -- 'debt_free', 'fire', 'wealth_building'
+    primary_pain_point TEXT,              -- Problema principale da risolvere
+    target_monthly_savings REAL,          -- Target risparmio mensile
+    risk_tolerance TEXT,                  -- 'conservative', 'moderate', 'aggressive'
+    preferred_pace TEXT,                  -- 'slow_steady', 'aggressive', 'flexible'
+    fire_target_age INTEGER,              -- Eta target per FIRE
+    monthly_essential_expenses REAL,      -- Spese essenziali stimate
+    onboarding_completed_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Goal Milestones (Fase Crescita)
+CREATE TABLE IF NOT EXISTS goal_milestones (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    goal_id INTEGER NOT NULL,
+    milestone_number INTEGER,
+    title TEXT NOT NULL,
+    description TEXT,
+    target_amount REAL,
+    target_date DATE,
+    status TEXT DEFAULT 'pending',        -- 'pending', 'achieved', 'missed'
+    achieved_at DATETIME,
+    actual_amount REAL,
+    celebration_shown INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (goal_id) REFERENCES goals(id)
+);
+
+-- FIRE Projections
+CREATE TABLE IF NOT EXISTS fire_projections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    projection_date DATE NOT NULL,
+    scenario_name TEXT,                   -- 'conservative', 'expected', 'optimistic'
+    fire_number REAL,                     -- 25x annual expenses
+    years_to_fire REAL,
+    projected_fire_date DATE,
+    annual_expenses REAL,
+    expected_return_rate REAL,
+    inflation_rate REAL,
+    current_net_worth REAL,
+    monthly_investment REAL,
+    confidence_score REAL,                -- 0-1 based on data quality
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- What-If Scenarios
+CREATE TABLE IF NOT EXISTS scenarios (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT,
+    scenario_type TEXT,                   -- 'income_change', 'expense_cut', 'debt_payoff', 'custom'
+    base_values TEXT,                     -- JSON: original values
+    modified_values TEXT,                 -- JSON: scenario changes
+    impact_summary TEXT,                  -- JSON: calculated impact
+    is_active INTEGER DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Coaching Events (Proactive)
+CREATE TABLE IF NOT EXISTS coaching_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_type TEXT NOT NULL,             -- 'nudge', 'celebration', 'alert', 'milestone'
+    title TEXT NOT NULL,
+    message TEXT,
+    priority TEXT DEFAULT 'medium',       -- 'low', 'medium', 'high', 'critical'
+    trigger_condition TEXT,               -- What triggered this event
+    action_url TEXT,                      -- Deep link to action
+    is_shown INTEGER DEFAULT 0,
+    shown_at DATETIME,
+    is_dismissed INTEGER DEFAULT 0,
+    dismissed_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- User Streaks (Gamification)
+CREATE TABLE IF NOT EXISTS user_streaks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    streak_type TEXT NOT NULL,            -- 'daily_check', 'budget_adherence', 'savings_goal'
+    current_streak INTEGER DEFAULT 0,
+    longest_streak INTEGER DEFAULT 0,
+    last_activity_date DATE,
+    streak_started_at DATE,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- v6.0 indexes
+CREATE INDEX IF NOT EXISTS idx_onboarding_goal ON onboarding_profile(financial_freedom_goal);
+CREATE INDEX IF NOT EXISTS idx_goal_milestones_goal ON goal_milestones(goal_id);
+CREATE INDEX IF NOT EXISTS idx_goal_milestones_status ON goal_milestones(status);
+CREATE INDEX IF NOT EXISTS idx_fire_projections_date ON fire_projections(projection_date);
+CREATE INDEX IF NOT EXISTS idx_fire_projections_scenario ON fire_projections(scenario_name);
+CREATE INDEX IF NOT EXISTS idx_scenarios_type ON scenarios(scenario_type);
+CREATE INDEX IF NOT EXISTS idx_scenarios_active ON scenarios(is_active);
+CREATE INDEX IF NOT EXISTS idx_coaching_events_type ON coaching_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_coaching_events_shown ON coaching_events(is_shown, is_dismissed);
+CREATE INDEX IF NOT EXISTS idx_user_streaks_type ON user_streaks(streak_type);
 """
 
 
@@ -333,7 +439,7 @@ def get_connection() -> sqlite3.Connection:
     # Ensure data directory exists
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
     conn.row_factory = sqlite3.Row
     # Enable foreign key support
     conn.execute("PRAGMA foreign_keys = ON")
@@ -1842,8 +1948,511 @@ def compare_to_baseline(current_month: str, baseline_month: str) -> dict:
 from datetime import datetime
 
 
+# ============================================================================
+# MoneyMind v6.0 - Onboarding Profile Functions
+# ============================================================================
+
+def get_onboarding_profile() -> Optional[dict]:
+    """Get the onboarding profile (singleton)."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM onboarding_profile ORDER BY id LIMIT 1")
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def save_onboarding_profile(profile: dict) -> int:
+    """Create or update onboarding profile."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        existing = get_onboarding_profile()
+
+        if existing:
+            cursor.execute(
+                """
+                UPDATE onboarding_profile SET
+                    financial_freedom_goal = ?,
+                    primary_pain_point = ?,
+                    target_monthly_savings = ?,
+                    risk_tolerance = ?,
+                    preferred_pace = ?,
+                    fire_target_age = ?,
+                    monthly_essential_expenses = ?,
+                    onboarding_completed_at = ?
+                WHERE id = ?
+                """,
+                (
+                    profile.get("financial_freedom_goal"),
+                    profile.get("primary_pain_point"),
+                    profile.get("target_monthly_savings"),
+                    profile.get("risk_tolerance"),
+                    profile.get("preferred_pace"),
+                    profile.get("fire_target_age"),
+                    profile.get("monthly_essential_expenses"),
+                    profile.get("onboarding_completed_at"),
+                    existing["id"]
+                )
+            )
+            return existing["id"]
+        else:
+            cursor.execute(
+                """
+                INSERT INTO onboarding_profile
+                (financial_freedom_goal, primary_pain_point, target_monthly_savings,
+                 risk_tolerance, preferred_pace, fire_target_age,
+                 monthly_essential_expenses, onboarding_completed_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    profile.get("financial_freedom_goal"),
+                    profile.get("primary_pain_point"),
+                    profile.get("target_monthly_savings"),
+                    profile.get("risk_tolerance"),
+                    profile.get("preferred_pace"),
+                    profile.get("fire_target_age"),
+                    profile.get("monthly_essential_expenses"),
+                    profile.get("onboarding_completed_at")
+                )
+            )
+            return cursor.lastrowid
+
+
+def complete_onboarding() -> bool:
+    """Mark onboarding as complete."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE onboarding_profile
+            SET onboarding_completed_at = CURRENT_TIMESTAMP
+            WHERE id = (SELECT id FROM onboarding_profile LIMIT 1)
+            """
+        )
+        return cursor.rowcount > 0
+
+
+def is_onboarding_complete() -> bool:
+    """Check if onboarding is complete."""
+    profile = get_onboarding_profile()
+    return profile is not None and profile.get("onboarding_completed_at") is not None
+
+
+# ============================================================================
+# MoneyMind v6.0 - Goal Milestones Functions
+# ============================================================================
+
+def add_milestone(milestone: dict) -> int:
+    """Add a milestone to a goal."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO goal_milestones
+            (goal_id, milestone_number, title, description, target_amount,
+             target_date, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                milestone["goal_id"],
+                milestone.get("milestone_number", 1),
+                milestone["title"],
+                milestone.get("description"),
+                milestone.get("target_amount"),
+                milestone.get("target_date"),
+                milestone.get("status", "pending")
+            )
+        )
+        return cursor.lastrowid
+
+
+def get_milestones_for_goal(goal_id: int) -> list[dict]:
+    """Get all milestones for a goal."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT * FROM goal_milestones
+            WHERE goal_id = ?
+            ORDER BY milestone_number ASC
+            """,
+            (goal_id,)
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def achieve_milestone(milestone_id: int, actual_amount: float = None) -> bool:
+    """Mark a milestone as achieved."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE goal_milestones
+            SET status = 'achieved', achieved_at = CURRENT_TIMESTAMP, actual_amount = ?
+            WHERE id = ?
+            """,
+            (actual_amount, milestone_id)
+        )
+        return cursor.rowcount > 0
+
+
+def mark_milestone_celebration_shown(milestone_id: int) -> bool:
+    """Mark that celebration was shown for a milestone."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE goal_milestones SET celebration_shown = 1 WHERE id = ?",
+            (milestone_id,)
+        )
+        return cursor.rowcount > 0
+
+
+def get_pending_celebrations() -> list[dict]:
+    """Get milestones achieved but not celebrated."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT gm.*, g.name as goal_name
+            FROM goal_milestones gm
+            JOIN goals g ON gm.goal_id = g.id
+            WHERE gm.status = 'achieved' AND gm.celebration_shown = 0
+            ORDER BY gm.achieved_at DESC
+            """
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+
+# ============================================================================
+# MoneyMind v6.0 - FIRE Projections Functions
+# ============================================================================
+
+def save_fire_projection(projection: dict) -> int:
+    """Save a FIRE projection."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO fire_projections
+            (projection_date, scenario_name, fire_number, years_to_fire,
+             projected_fire_date, annual_expenses, expected_return_rate,
+             inflation_rate, current_net_worth, monthly_investment, confidence_score)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                projection["projection_date"],
+                projection.get("scenario_name", "expected"),
+                projection.get("fire_number"),
+                projection.get("years_to_fire"),
+                projection.get("projected_fire_date"),
+                projection.get("annual_expenses"),
+                projection.get("expected_return_rate"),
+                projection.get("inflation_rate"),
+                projection.get("current_net_worth"),
+                projection.get("monthly_investment"),
+                projection.get("confidence_score")
+            )
+        )
+        return cursor.lastrowid
+
+
+def get_latest_fire_projection(scenario: str = "expected") -> Optional[dict]:
+    """Get the most recent FIRE projection for a scenario."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT * FROM fire_projections
+            WHERE scenario_name = ?
+            ORDER BY projection_date DESC
+            LIMIT 1
+            """,
+            (scenario,)
+        )
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def get_fire_projection_history(months: int = 12) -> list[dict]:
+    """Get FIRE projection history for trending."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT * FROM fire_projections
+            WHERE scenario_name = 'expected'
+            ORDER BY projection_date DESC
+            LIMIT ?
+            """,
+            (months,)
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+
+# ============================================================================
+# MoneyMind v6.0 - Scenarios Functions
+# ============================================================================
+
+def save_scenario(scenario: dict) -> int:
+    """Save a what-if scenario."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO scenarios
+            (name, description, scenario_type, base_values, modified_values, impact_summary)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                scenario["name"],
+                scenario.get("description"),
+                scenario.get("scenario_type"),
+                scenario.get("base_values"),  # JSON string
+                scenario.get("modified_values"),  # JSON string
+                scenario.get("impact_summary")  # JSON string
+            )
+        )
+        return cursor.lastrowid
+
+
+def get_scenarios(active_only: bool = True) -> list[dict]:
+    """Get all scenarios."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        query = "SELECT * FROM scenarios"
+        if active_only:
+            query += " WHERE is_active = 1"
+        query += " ORDER BY created_at DESC"
+        cursor.execute(query)
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def get_scenario_by_id(scenario_id: int) -> Optional[dict]:
+    """Get a scenario by ID."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM scenarios WHERE id = ?", (scenario_id,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def deactivate_scenario(scenario_id: int) -> bool:
+    """Deactivate a scenario."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE scenarios SET is_active = 0 WHERE id = ?", (scenario_id,))
+        return cursor.rowcount > 0
+
+
+# ============================================================================
+# MoneyMind v6.0 - Coaching Events Functions
+# ============================================================================
+
+def create_coaching_event(event: dict) -> int:
+    """Create a coaching event (nudge, celebration, alert)."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO coaching_events
+            (event_type, title, message, priority, trigger_condition, action_url)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                event["event_type"],
+                event["title"],
+                event.get("message"),
+                event.get("priority", "medium"),
+                event.get("trigger_condition"),
+                event.get("action_url")
+            )
+        )
+        return cursor.lastrowid
+
+
+def get_active_coaching_events(event_type: str = None) -> list[dict]:
+    """Get active (not shown or dismissed) coaching events."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        query = """
+            SELECT * FROM coaching_events
+            WHERE is_shown = 0 AND is_dismissed = 0
+        """
+        params = []
+        if event_type:
+            query += " AND event_type = ?"
+            params.append(event_type)
+        query += " ORDER BY CASE priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END, created_at DESC"
+        cursor.execute(query, params)
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def get_nudges() -> list[dict]:
+    """Get active nudges."""
+    return get_active_coaching_events("nudge")
+
+
+def get_celebrations() -> list[dict]:
+    """Get pending celebrations."""
+    return get_active_coaching_events("celebration")
+
+
+def mark_event_shown(event_id: int) -> bool:
+    """Mark a coaching event as shown."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE coaching_events
+            SET is_shown = 1, shown_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (event_id,)
+        )
+        return cursor.rowcount > 0
+
+
+def dismiss_coaching_event(event_id: int) -> bool:
+    """Dismiss a coaching event."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE coaching_events
+            SET is_dismissed = 1, dismissed_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (event_id,)
+        )
+        return cursor.rowcount > 0
+
+
+# ============================================================================
+# MoneyMind v6.0 - User Streaks Functions
+# ============================================================================
+
+def get_or_create_streak(streak_type: str) -> dict:
+    """Get or create a streak record."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT * FROM user_streaks WHERE streak_type = ?",
+            (streak_type,)
+        )
+        row = cursor.fetchone()
+        if row:
+            return dict(row)
+
+        # Create new streak
+        cursor.execute(
+            """
+            INSERT INTO user_streaks (streak_type, current_streak, longest_streak)
+            VALUES (?, 0, 0)
+            """,
+            (streak_type,)
+        )
+        return {
+            "id": cursor.lastrowid,
+            "streak_type": streak_type,
+            "current_streak": 0,
+            "longest_streak": 0,
+            "last_activity_date": None,
+            "streak_started_at": None
+        }
+
+
+def update_streak(streak_type: str) -> dict:
+    """Update a streak (call when user performs the tracked action)."""
+    streak = get_or_create_streak(streak_type)
+    today = datetime.now().strftime("%Y-%m-%d")
+    last_activity = streak.get("last_activity_date")
+
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+
+        if last_activity == today:
+            # Already updated today
+            return streak
+        elif last_activity == (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d"):
+            # Consecutive day - increment streak
+            new_streak = streak["current_streak"] + 1
+            longest = max(new_streak, streak["longest_streak"])
+            cursor.execute(
+                """
+                UPDATE user_streaks
+                SET current_streak = ?, longest_streak = ?, last_activity_date = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE streak_type = ?
+                """,
+                (new_streak, longest, today, streak_type)
+            )
+        else:
+            # Streak broken - restart
+            cursor.execute(
+                """
+                UPDATE user_streaks
+                SET current_streak = 1, last_activity_date = ?, streak_started_at = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE streak_type = ?
+                """,
+                (today, today, streak_type)
+            )
+
+    return get_or_create_streak(streak_type)
+
+
+def get_all_streaks() -> list[dict]:
+    """Get all user streaks."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM user_streaks ORDER BY current_streak DESC")
+        return [dict(row) for row in cursor.fetchall()]
+
+
+# ============================================================================
+# MoneyMind v6.0 - Schema Migration Functions
+# ============================================================================
+
+def run_migrations() -> None:
+    """Run any pending schema migrations for v6.0."""
+    with get_db_context() as conn:
+        cursor = conn.cursor()
+
+        # Check if columns exist before adding them
+        # This is safe for SQLite - it will raise an error if column exists
+        migrations = [
+            # user_profile extensions for FIRE
+            ("user_profile", "fire_target_date", "DATE"),
+            ("user_profile", "fire_target_amount", "REAL"),
+            ("user_profile", "preferred_investment_return", "REAL DEFAULT 0.07"),
+            ("user_profile", "preferred_inflation_rate", "REAL DEFAULT 0.02"),
+
+            # goals extensions for phases
+            ("goals", "phase", "TEXT"),
+            ("goals", "milestone_count", "INTEGER DEFAULT 0"),
+            ("goals", "next_milestone_id", "INTEGER"),
+
+            # decisions extensions for tracking
+            ("decisions", "source", "TEXT"),
+            ("decisions", "user_confidence", "INTEGER"),
+            ("decisions", "long_term_verified", "INTEGER DEFAULT 0"),
+            ("decisions", "verified_at", "DATETIME"),
+        ]
+
+        for table, column, column_type in migrations:
+            try:
+                cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {column_type}")
+            except Exception:
+                # Column already exists, skip
+                pass
+
+
+# Import timedelta for streak calculations
+from datetime import timedelta
+
+
 # Initialize database when module is imported (optional - can be called explicitly)
 if __name__ == "__main__":
     init_db()
+    run_migrations()
     print(f"Database initialized at: {DB_PATH}")
     print(f"Categories: {len(get_categories())}")

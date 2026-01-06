@@ -139,7 +139,7 @@ SUBSCRIPTION_PATTERNS = [
     r"steam",
     r"gog\.com",
     r"linkedin",
-    r"make\b",
+    # r"make\b",  # REMOVED: Make is a restaurant in Vignola, not Make.com!
     r"adobe",
     r"canva",
     r"dropbox",
@@ -191,7 +191,7 @@ SHOPPING_PATTERNS = [
     r"shein",
     r"gutteridge",  # Clothing
     r"soncini",  # Clothing shop
-    r"floriba",  # Shop
+    # r"floriba",  # REMOVED: Floriba is Terme Asmana (wellness), not shopping
     r"sonosystem",  # Electronics
     r"ethical\s*grace",  # Shop
 ]
@@ -252,6 +252,11 @@ RESTAURANT_PATTERNS = [
     r"societ.\s*agricola",
     r"abraciami",  # Restaurant
     r"chimon",  # Restaurant
+    r"\bmake\b",  # Restaurant in Vignola
+    r"l.osteria",  # Restaurant
+    r"il\s*timone",  # Restaurant
+    r"scaraboci",  # Restaurant
+    r"il\s*grammofono",  # Restaurant
 ]
 
 # Bar/Cafe patterns
@@ -423,6 +428,12 @@ TRAVEL_PATTERNS = [
     r"agriturismo",
     r"trainline",
     r"the\s*social\s*hub",  # Hostel chain
+    r"floriba",  # Terme Asmana (wellness/spa)
+    r"terme",
+    r"seccheto",  # Elba beach location
+    r"oglasa",  # Elba ferry/wine
+    r"pv\d{4}",  # POS codes vacation
+    r"\bprb\b",  # Vacation spot
 ]
 
 # Entertainment patterns

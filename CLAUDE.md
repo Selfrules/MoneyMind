@@ -2,18 +2,62 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Mission
+
+> **MoneyMind accompagna Mattia verso la libertà finanziaria** attraverso un consulente AI esperto che analizza, pianifica e guida con azioni concrete quotidiane.
+
+**Le 4 Fasi verso la Libertà Finanziaria**:
+1. **Diagnosi** - Fotografare situazione attuale (KPI, health score, categorizzazione)
+2. **Ottimizzazione (0-90g)** - Liberare margine, quick wins, taglio spese
+3. **Sicurezza (3-24m)** - Stabilità: debiti a 0, fondo emergenza 3-6 mesi
+4. **Crescita (2+ anni)** - Costruire patrimonio e rendite passive (FIRE)
+
+**KPI Non Negoziabili**:
+- Risparmio mensile: aumento vs baseline 3 mesi precedenti
+- Data uscita debiti: riduzione tempo vs "scenario continuo così"
+
+Per dettagli completi: [docs/MISSION.md](docs/MISSION.md)
+
+---
+
+## Documentation Links
+
+| Document | Purpose |
+|----------|---------|
+| [docs/MISSION.md](docs/MISSION.md) | Mission, 4 fasi, KPI target |
+| [docs/GAP_ANALYSIS.md](docs/GAP_ANALYSIS.md) | Analisi gap attuali vs missione |
+| [docs/architecture.md](docs/architecture.md) | System design, data flow diagrams, component interactions |
+| [docs/tech_stack.md](docs/tech_stack.md) | Technology choices and rationale |
+| [docs/project_status.md](docs/project_status.md) | Current state, backlog, where we left off |
+| [docs/changelog.md](docs/changelog.md) | Version history (milestone releases) |
+| [docs/lessons_learned.md](docs/lessons_learned.md) | Best practices discovered |
+
+---
+
 ## Project Overview
 
-MoneyMind v4.0 is an AI-First, Mobile-Native, Freedom-Focused personal finance coach built with Streamlit. It transforms from a passive tracker to a **directive assistant** that actively helps users reduce debt payoff time and increase monthly savings through concrete daily actions.
+MoneyMind v5.0 is an AI-First, Mobile-Native, Freedom-Focused personal finance coach. It transforms from a passive tracker to a **directive assistant** that actively helps users reduce debt payoff time and increase monthly savings through concrete daily actions.
+
+**Architecture**: Next.js 15 frontend + FastAPI backend + existing Python business logic
 
 ## Development Commands
 
 ```bash
-# Run the application
-streamlit run app.py
+# Start Backend (FastAPI on port 8001)
+cd backend && uvicorn app.main:app --port 8001 --reload
 
-# Install dependencies
+# Start Frontend (Next.js on port 3000)
+cd frontend && npm run dev
+
+# Install Backend dependencies
 pip install -r requirements.txt
+pip install fastapi uvicorn pydantic-settings
+
+# Install Frontend dependencies
+cd frontend && npm install
+
+# Legacy Streamlit (deprecato, solo per riferimento)
+streamlit run app.py
 ```
 
 ## Environment Variables
@@ -23,46 +67,154 @@ Create a `.env` file with:
 ANTHROPIC_API_KEY=your_api_key_here
 ```
 
-## Architecture
+## Architecture (v5.0)
 
-### Single-Page App with Bottom Tab Navigation
-Mobile-first SPA architecture with 5 main tabs:
+### Frontend + Backend Separation
 
-- **Home** - Freedom Score, Plan vs Actual comparison, Daily Actions (1-3 high-impact tasks), AI Insights, Scenario Comparison
-- **Money** - Sub-tabs: Transactions, Budget, Trends, **Ricorrenti** (recurring expenses with optimization suggestions)
-- **Coach** - AI chat with Claude Opus 4.5, context-aware responses, decision tracking
-- **Goals** - Debt freedom tracker (Avalanche/Snowball), timeline visualization, emergency fund goals
-- **Profile** - User info, financial health KPIs, impact stories from past decisions
+```
+┌─────────────────────────────┐     REST API     ┌─────────────────────────────┐
+│     FRONTEND (Next.js)      │ ───────────────► │     BACKEND (FastAPI)       │
+│  TypeScript + React Query   │ ◄─────────────── │  Python + Pydantic          │
+│  Tailwind CSS + shadcn/ui   │                  │  Imports from src/          │
+│  localhost:3000             │                  │  localhost:8001             │
+└─────────────────────────────┘                  └─────────────────────────────┘
+```
 
-### Core Modules (`src/`)
+### API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/dashboard` | KPIs, health score, month summary |
+| GET | `/api/actions/today` | Daily actions (prioritized) |
+| POST | `/api/actions/{id}/complete` | Mark action complete |
+| GET | `/api/insights` | Active insights |
+| GET | `/api/transactions` | Transactions with filters (WIP) |
+| GET | `/api/budgets/{month}` | Monthly budgets (WIP) |
+| POST | `/api/chat` | AI coach chat (SSE streaming, WIP) |
+
+### Frontend Structure
+
+```
+frontend/src/
+├── app/                  # Next.js App Router
+│   ├── page.tsx          # Home tab
+│   ├── money/page.tsx    # Money tab
+│   ├── coach/page.tsx    # Coach tab
+│   ├── goals/page.tsx    # Goals tab
+│   └── profile/page.tsx  # Profile tab
+├── components/
+│   ├── ui/               # shadcn components
+│   ├── dashboard/        # Home tab components
+│   │   ├── freedom-score.tsx
+│   │   ├── kpi-cards.tsx
+│   │   ├── daily-actions.tsx
+│   │   └── month-summary.tsx
+│   └── bottom-nav.tsx    # Tab navigation
+├── hooks/
+│   └── use-dashboard.ts  # React Query hooks
+└── lib/
+    ├── api.ts            # API client
+    └── api-types.ts      # TypeScript interfaces
+```
+
+### Backend Structure
+
+```
+backend/app/
+├── main.py               # FastAPI entry point
+├── core/
+│   └── config.py         # Pydantic Settings
+├── api/
+│   ├── deps.py           # Dependency injection (DB)
+│   └── routes/
+│       ├── dashboard.py
+│       ├── actions.py
+│       └── insights.py
+└── schemas/
+    ├── dashboard.py      # Response models
+    ├── actions.py
+    └── insights.py
+```
+
+### Core Python Modules (`src/`)
 
 #### Database Layer
-- `database.py` - SQLite with extended v4.0 schema. Context manager pattern (`get_db_context()`). 19 default Italian categories.
+- `database.py` - SQLite with v4.0 schema. Context manager pattern (`get_db_context()`). 21 Italian categories.
 
 #### Analytics & Finance Engine (`src/core_finance/`)
-- `baseline.py` - 3-month baseline calculator, current vs baseline comparison
-- `debt_planner.py` - Monthly payment plans, scenario comparison (current vs MoneyMind), on-track status
-- `budget_generator.py` - Auto-generate budgets from debt plan, 50/30/20 rule adapted for debt phase
-- `replanner.py` - Monthly re-planning based on actual vs planned spending
+- `baseline.py` - 3-month baseline calculator
+- `debt_planner.py` - Avalanche/Snowball payment plans
+- `budget_generator.py` - Auto-generate budgets from debt plan
+- `replanner.py` - Monthly re-planning engine
 
 #### Repository Pattern (`src/repositories/`)
 - `base.py` - Abstract repository base class
 - `transaction_repository.py`, `debt_repository.py`, `budget_repository.py`
 - `recurring_repository.py`, `decision_repository.py`, `action_repository.py`
-- `baseline_repository.py`
 
 #### AI Layer (`src/ai/`)
-- `categorizer.py` - **Hybrid categorization** with 100+ rule-based patterns (95% hit rate), Claude Haiku fallback
-- `advisor.py` - Financial coach with Claude Opus 4.5 extended thinking
-- `insight_engine.py` - Proactive insights (spending anomalies, optimization opportunities)
-- `action_planner.py` - Daily action generation (Full Auto mode)
-- `recurring_optimizer.py` - Smart suggestions for recurring expense optimization
+- `categorizer.py` - Hybrid categorization (100+ patterns, 99.9% accuracy)
+- `advisor.py` - Financial coach (Claude Opus 4.5)
+- `insight_engine.py` - Proactive insights generation
+- `action_planner.py` - Daily action generation
+- `recurring_optimizer.py` - Recurring expense optimization
 
 #### Bank Parsers (`src/parsers/`)
-- `revolut.py` - Italian format, Legacy format, SHA256 IDs
-- `illimity.py` - XLSX exports, Italian transaction type mapping
+- `revolut.py` - Italian CSV format
+- `illimity.py` - XLSX exports
 
-### Categorization Rules (`src/ai/categorizer.py`)
+## Design System
+
+Mobile-first dark theme with emerald green (#10B981) accent.
+
+**Colors** (defined in `frontend/src/app/globals.css`):
+- Background: #0A0A0A (primary), #141414 (cards), #1E1E1E (tertiary)
+- Text: #FAFAFA (primary), #A1A1AA (secondary), #71717A (muted)
+- Semantic: income (#22C55E), expense (#EF4444), warning (#F59E0B), accent (#10B981)
+
+**Components**: shadcn/ui (button, card, badge, progress, tabs)
+
+## Key Patterns
+
+### Frontend
+- **State Management**: React Query with `useQuery` hooks
+- **API Client**: Fetch-based in `lib/api.ts`
+- **Type Safety**: TypeScript interfaces in `lib/api-types.ts`
+- **Mobile-first**: Max-width 448px, bottom tab navigation
+
+### Backend
+- **Dependency Injection**: `get_db` in `api/deps.py`
+- **Response Models**: Pydantic schemas in `schemas/`
+- **Business Logic**: Import from `src/` (analytics, repositories, AI)
+
+### Data Conventions
+- **Amount convention**: Positive = income, Negative = expense
+- **Financial phases**: "Debt Payoff" or "Wealth Building"
+- **Health Score**: A (80+), B (65+), C (50+), D (35+), F (<35)
+
+## Adding New Features
+
+### New API Endpoint
+1. Create Pydantic schema in `backend/app/schemas/`
+2. Create route in `backend/app/api/routes/`
+3. Register router in `backend/app/main.py`
+4. Add TypeScript interface in `frontend/src/lib/api-types.ts`
+5. Create React Query hook in `frontend/src/hooks/`
+
+### New Frontend Component
+1. Create component in `frontend/src/components/`
+2. Import shadcn/ui primitives from `components/ui/`
+3. Use React Query hook for data fetching
+
+### New Categorization Rules
+Edit `src/ai/categorizer.py` - add patterns to appropriate `*_PATTERNS` list.
+
+### New Database Tables
+1. Add CREATE TABLE to SCHEMA_SQL in `database.py`
+2. Add CRUD functions following existing patterns
+3. Add repository class in `src/repositories/`
+
+## Categorization Rules (`src/ai/categorizer.py`)
 
 **100+ patterns organized by category:**
 
@@ -71,130 +223,27 @@ Mobile-first SPA architecture with 5 main tabs:
 | Risparmi Automatici | `accredita.*risparmio`, Revolut roundups |
 | Stipendio | `accredito competenze`, `accredito mens` |
 | Utenze | Octopus, Hera, Iren, Enel, TIM, Vodafone, Iliad |
-| Finanziamenti | Agos, Findomestic, `personal loan`, `paga in 3`, repayment |
-| Abbonamenti | Netflix, Spotify, GitHub, ChatGPT, Notion, Whoop, Audible, Nexi, Wise |
-| Ristoranti | JustEat, Deliveroo, pizzeria, trattoria, enoteca, birreria, 35+ local patterns |
-| Caffe | `\bbar\b`, gelateria, pasticceria, panificio, 18+ local patterns |
+| Finanziamenti | Agos, Findomestic, `personal loan`, `paga in 3` |
+| Abbonamenti | Netflix, Spotify, GitHub, ChatGPT, Notion, Whoop |
+| Ristoranti | JustEat, Deliveroo, pizzeria, trattoria, 35+ patterns |
+| Caffe | `\bbar\b`, gelateria, pasticceria, panificio |
 | Spesa | Conad, Coop, Esselunga, Lidl, macelleria |
-| Shopping | Amazon, Zalando, IKEA, Gutteridge, 20+ patterns |
-| Viaggi | Booking, Airbnb, hotel, Trainline, bagno (beach), bowling, cinema |
-| Trasporti | Trenitalia, Italo, Uber, Telepass, parcheggio, benzina |
-| Gatti | Arcaplanet, Zooplus, veterinario, Arcacat |
-| Psicologo | Unobravo, Serenis |
-| Palestra | 21 Lab, McFit, Virgin Active |
+| Shopping | Amazon, Zalando, IKEA, Gutteridge |
+| Viaggi | Booking, Airbnb, hotel, Trainline |
+| Trasporti | Trenitalia, Italo, Uber, Telepass, benzina |
+| Gatti | Arcaplanet, Zooplus, veterinario |
 
 ## Database Schema (v4.0)
 
-```sql
--- Core tables (existing)
-categories(id, name, icon, color)
-transactions(id, date, description, amount, category_id, bank, account_type, type, balance, is_recurring, recurring_expense_id)
-budgets(id, category_id, amount, month, source, auto_generated)
-user_profile(id, income_type, monthly_net_income, risk_tolerance, financial_knowledge, coaching_style)
-debts(id, name, type, original_amount, current_balance, interest_rate, monthly_payment, payment_day, start_date, is_active)
-goals(id, name, type, target_amount, current_amount, priority, status, target_date)
-insights(id, type, category, severity, title, message, action_text, is_read, is_dismissed)
-kpi_history(id, month, net_worth, total_debt, savings_rate, dti_ratio, emergency_fund_months)
-chat_history(id, session_id, role, content, tokens_used)
-
--- New v4.0 tables
-decisions(id, decision_date, type, category_id, debt_id, recurring_expense_id, amount, description, status, expected_impact_monthly, expected_impact_payoff_days, actual_impact_monthly, actual_impact_verified, verification_date, insight_id)
-
-debt_monthly_plans(id, month, debt_id, planned_payment, extra_payment, actual_payment, order_in_strategy, strategy_type, projected_payoff_date, status)
-
-recurring_expenses(id, pattern_name, category_id, frequency, avg_amount, last_amount, trend_percent, first_occurrence, last_occurrence, occurrence_count, provider, is_essential, is_active, optimization_status, optimization_suggestion, estimated_savings_monthly, confidence_score)
-
-transaction_recurring_links(transaction_id, recurring_expense_id, match_confidence)
-
-daily_actions(id, action_date, priority, title, description, action_type, impact_type, estimated_impact_monthly, estimated_impact_payoff_days, status, completed_at, decision_id, insight_id, recurring_expense_id, debt_id, category_id)
-
-baseline_snapshots(id, snapshot_month, category_id, avg_spending_3mo, avg_income_3mo, avg_savings_3mo, projected_payoff_months, projected_payoff_date)
-```
-
-## Design System
-
-Mobile-first dark theme with emerald green (#10B981) accent.
-
-**Colors** (`src/styles.py`):
-- Background: #0A0A0A (primary), #141414 (cards), #1E1E1E (tertiary)
-- Text: #FAFAFA (primary), #A1A1AA (secondary), #71717A (muted)
-- Semantic: income (#22C55E), expense (#EF4444), warning (#F59E0B), accent (#10B981)
-
-**Layout**: Centered, collapsed sidebar, fixed bottom tab navigation.
-
-## Key Patterns
-
-- **Session state**: `active_tab`, `chat_messages`, `money_subtab`
-- **Data loading**: `load_dashboard_data()` cached function
-- **Custom components**: HTML via `st.markdown(unsafe_allow_html=True)`
-- **Amount convention**: Positive = income, Negative = expense
-- **KPI fallback**: Uses `user_profile.monthly_net_income` when transaction income < 50% of expected
-- **Financial phases**: "Debt Payoff" or "Wealth Building"
-
-## Financial Health Score
-
-Calculated in `analytics.py:calculate_financial_health_score()`:
-- Savings Rate (25 pts): 20%+ = 25, 10% = 15, 0% = 0
-- DTI Ratio (25 pts): <20% = 25, <36% = 15, >50% = 0
-- Emergency Fund (25 pts): 6+ months = 25, 3 = 15, 0 = 0
-- Net Worth Trend (25 pts): Positive = 25, Flat = 10, Negative = 0
-
-Grades: A (80+), B (65+), C (50+), D (35+), F (<35)
-
-## Adding New Features
-
-### New Categorization Rules
-Edit `src/ai/categorizer.py` - add patterns to appropriate `*_PATTERNS` list.
-
-### New Database Tables
-1. Add CREATE TABLE to SCHEMA_SQL in `database.py`
-2. Add CRUD functions following existing patterns
-3. Optionally add repository class in `src/repositories/`
-
-### New UI Components
-1. Add template function in `styles.py` returning HTML string
-2. Use `st.markdown(component_func(...), unsafe_allow_html=True)`
+See `src/database.py` for complete schema. Key tables:
+- `transactions` - Normalized transactions from all banks
+- `categories` - 21 categories with icons and colors
+- `budgets` - Monthly budgets by category
+- `debts` - Active debts with rates and plans
+- `daily_actions` - AI-generated daily tasks
+- `insights` - Proactive insights with severity
+- `recurring_expenses` - Pattern-detected recurring expenses
 
 ## File Organization
 
-```
-MoneyMind/
-├── app.py                    # Main SPA with all tabs
-├── CLAUDE.md                 # This file
-├── requirements.txt
-├── .env                      # API keys (not committed)
-├── .streamlit/config.toml    # Streamlit theme config
-├── data/
-│   └── moneymind.db          # SQLite database
-├── src/
-│   ├── database.py           # DB schema and CRUD
-│   ├── analytics.py          # KPIs, debt strategies, health score
-│   ├── styles.py             # Design system and components
-│   ├── utils.py              # Utilities
-│   ├── ai/
-│   │   ├── categorizer.py    # Transaction categorization (100+ patterns)
-│   │   ├── advisor.py        # AI coach (Opus 4.5)
-│   │   ├── insight_engine.py # Proactive insights
-│   │   ├── action_planner.py # Daily action generation
-│   │   ├── recurring_optimizer.py # Recurring expense optimization
-│   │   └── reporter.py       # Monthly reports (Sonnet)
-│   ├── core_finance/
-│   │   ├── baseline.py       # Baseline calculator
-│   │   ├── debt_planner.py   # Debt payment planning
-│   │   ├── budget_generator.py # Auto budget generation
-│   │   └── replanner.py      # Monthly re-planning
-│   ├── repositories/
-│   │   ├── base.py           # Abstract base
-│   │   ├── transaction_repository.py
-│   │   ├── debt_repository.py
-│   │   ├── budget_repository.py
-│   │   ├── recurring_repository.py
-│   │   ├── decision_repository.py
-│   │   ├── action_repository.py
-│   │   └── baseline_repository.py
-│   └── parsers/
-│       ├── revolut.py        # Revolut CSV parser
-│       └── illimity.py       # Illimity XLSX parser
-└── misc/
-    └── pages_backup_v2/      # Old multi-page structure (archived)
-```
+See [docs/architecture.md](docs/architecture.md) for complete folder structure and component interactions.

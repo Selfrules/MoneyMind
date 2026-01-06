@@ -1,0 +1,17 @@
+# FastAPI Backend Dependencies
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+python-dotenv>=1.0.0
+python-multipart>=0.0.6
+
+# Database (using existing src/ modules)
+# SQLite is built-in, no additional deps needed
+
+# CORS
+# Included in FastAPI
+
+# Existing project deps (for importing src/)
+pandas>=2.0.0
+anthropic>=0.18.0

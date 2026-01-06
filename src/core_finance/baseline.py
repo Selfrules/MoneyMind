@@ -91,9 +91,12 @@ class BaselineCalculator:
 
         for month in months_to_average:
             summary = get_monthly_summary(month)
-            if summary.get("expenses", 0) != 0 or summary.get("income", 0) != 0:
-                total_spending += abs(summary.get("expenses", 0))
-                total_income += summary.get("income", 0)
+            # Keys are total_income, total_expenses from database.py
+            income = summary.get("total_income", 0) or summary.get("income", 0)
+            expenses = summary.get("total_expenses", 0) or summary.get("expenses", 0)
+            if expenses != 0 or income != 0:
+                total_spending += abs(expenses)
+                total_income += income
                 months_with_data += 1
 
         if months_with_data == 0:
@@ -236,8 +239,8 @@ class BaselineCalculator:
 
         # Get current month data
         current_summary = get_monthly_summary(current_month)
-        current_spending = abs(current_summary.get("expenses", 0))
-        current_income = current_summary.get("income", 0)
+        current_spending = abs(current_summary.get("total_expenses", 0) or current_summary.get("expenses", 0))
+        current_income = current_summary.get("total_income", 0) or current_summary.get("income", 0)
         current_savings = current_income - current_spending
 
         # Calculate deltas

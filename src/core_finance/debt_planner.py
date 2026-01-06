@@ -437,3 +437,169 @@ class DebtPlanner:
             }
             for idx, d in enumerate(sorted_debts)
         ]
+
+    def get_debt_phase_progress(self) -> Dict[str, Any]:
+        """
+        Calculate debt payoff phase progress.
+
+        Returns progress through the debt-free journey:
+        - Phase 1: First debt eliminated (25%)
+        - Phase 2: Half of debts eliminated (50%)
+        - Phase 3: Only one debt remaining (75%)
+        - Phase 4: Debt-free (100%)
+
+        Returns:
+            Dict with phase info, progress percentage, and next milestone
+        """
+        debts = get_debts(active_only=False)  # Get all debts, including paid off
+
+        if not debts:
+            return {
+                "phase": "no_debts",
+                "phase_number": 0,
+                "progress_percent": 100,
+                "next_milestone": None,
+                "debts_total": 0,
+                "debts_eliminated": 0,
+                "debts_remaining": 0,
+                "is_debt_free": True,
+                "message": "Nessun debito registrato",
+            }
+
+        active_debts = [d for d in debts if d.get("is_active", True) and d.get("current_balance", 0) > 0]
+        eliminated_debts = [d for d in debts if not d.get("is_active", True) or d.get("current_balance", 0) <= 0]
+
+        total_count = len(debts)
+        eliminated_count = len(eliminated_debts)
+        remaining_count = len(active_debts)
+
+        # Calculate progress
+        elimination_progress = (eliminated_count / total_count * 100) if total_count > 0 else 0
+
+        # Determine phase and next milestone
+        if remaining_count == 0:
+            phase = "debt_free"
+            phase_number = 4
+            progress = 100
+            next_milestone = None
+            message = "Sei debt-free! Congratulazioni!"
+        elif remaining_count == 1:
+            phase = "final_push"
+            phase_number = 3
+            progress = 75 + (25 * (1 - active_debts[0].get("current_balance", 0) / active_debts[0].get("original_amount", 1)))
+            next_milestone = {
+                "title": "Ultimo debito",
+                "debt_name": active_debts[0].get("name", "Debito"),
+                "remaining": active_debts[0].get("current_balance", 0),
+            }
+            message = "Ultimo debito da eliminare!"
+        elif eliminated_count >= total_count / 2:
+            phase = "momentum"
+            phase_number = 2
+            progress = 50 + (25 * ((eliminated_count - total_count / 2) / (total_count / 2)))
+            next_debt = self._get_next_focus_debt(active_debts)
+            next_milestone = {
+                "title": "Prossimo debito",
+                "debt_name": next_debt.get("name", "Debito") if next_debt else None,
+                "remaining": next_debt.get("current_balance", 0) if next_debt else 0,
+            }
+            message = f"{eliminated_count}/{total_count} debiti eliminati"
+        elif eliminated_count >= 1:
+            phase = "building"
+            phase_number = 1
+            progress = 25 + (25 * ((eliminated_count - 1) / max(1, (total_count / 2 - 1))))
+            next_debt = self._get_next_focus_debt(active_debts)
+            next_milestone = {
+                "title": "Prossimo debito",
+                "debt_name": next_debt.get("name", "Debito") if next_debt else None,
+                "remaining": next_debt.get("current_balance", 0) if next_debt else 0,
+            }
+            message = f"Primo debito eliminato! {remaining_count} rimanenti"
+        else:
+            phase = "starting"
+            phase_number = 0
+            progress = 0 + (25 * (1 - sum(d.get("current_balance", 0) for d in active_debts) / sum(d.get("original_amount", 1) for d in active_debts)))
+            focus_debt = self._get_next_focus_debt(active_debts)
+            next_milestone = {
+                "title": "Primo debito",
+                "debt_name": focus_debt.get("name", "Debito") if focus_debt else None,
+                "remaining": focus_debt.get("current_balance", 0) if focus_debt else 0,
+            }
+            message = f"Focus sul primo debito: {focus_debt.get('name', 'Debito')}" if focus_debt else "Inizia il percorso"
+
+        return {
+            "phase": phase,
+            "phase_number": phase_number,
+            "progress_percent": min(100, max(0, progress)),
+            "next_milestone": next_milestone,
+            "debts_total": total_count,
+            "debts_eliminated": eliminated_count,
+            "debts_remaining": remaining_count,
+            "is_debt_free": remaining_count == 0,
+            "message": message,
+        }
+
+    def _get_next_focus_debt(self, debts: List[dict]) -> Optional[dict]:
+        """Get the next debt to focus on based on strategy."""
+        if not debts:
+            return None
+        sorted_debts = self._sort_debts_by_strategy(debts, self.strategy)
+        return sorted_debts[0] if sorted_debts else None
+
+    def get_debt_journey_summary(self) -> Dict[str, Any]:
+        """
+        Get a comprehensive summary of the debt-free journey.
+
+        Returns:
+            Dict with journey stats, timeline, and progress visualization data
+        """
+        debts = get_debts(active_only=False)
+        phase_progress = self.get_debt_phase_progress()
+
+        total_original = sum(d.get("original_amount", 0) for d in debts)
+        total_current = sum(d.get("current_balance", 0) for d in debts if d.get("is_active", True))
+        total_paid = total_original - total_current
+        overall_progress = (total_paid / total_original * 100) if total_original > 0 else 0
+
+        # Calculate interest paid and saved
+        total_min_payments = sum(d.get("monthly_payment", 0) for d in debts if d.get("is_active", True))
+        comparison = self.calculate_scenario_comparison()
+
+        # Build timeline milestones
+        milestones = []
+        sorted_debts = self._sort_debts_by_strategy(
+            [d for d in debts if d.get("is_active", True) and d.get("current_balance", 0) > 0],
+            self.strategy
+        )
+
+        running_months = 0
+        for idx, debt in enumerate(sorted_debts):
+            balance = debt.get("current_balance", 0)
+            payment = debt.get("monthly_payment", 0)
+            rate = debt.get("interest_rate", 0)
+
+            months_for_debt = self._estimate_months_to_payoff(balance, payment, rate)
+            running_months += months_for_debt
+
+            if running_months < 999:
+                milestone_date = date.today() + relativedelta(months=running_months)
+                milestones.append({
+                    "order": idx + 1,
+                    "debt_name": debt.get("name", "Debito"),
+                    "estimated_date": milestone_date.isoformat(),
+                    "estimated_months": running_months,
+                })
+
+        return {
+            "phase_info": phase_progress,
+            "total_original_debt": total_original,
+            "total_current_debt": total_current,
+            "total_paid": total_paid,
+            "overall_progress_percent": round(overall_progress, 1),
+            "monthly_payment": total_min_payments,
+            "projected_payoff_date": comparison.moneymind_scenario.get("date"),
+            "months_remaining": comparison.moneymind_scenario.get("months", 0),
+            "interest_remaining": comparison.moneymind_scenario.get("interest", 0),
+            "potential_interest_saved": comparison.interest_saved,
+            "milestones": milestones,
+        }

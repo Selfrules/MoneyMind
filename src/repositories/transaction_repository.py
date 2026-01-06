@@ -28,6 +28,7 @@ from src.database import (
 @dataclass
 class Transaction(Entity):
     """Transaction entity."""
+    id: Optional[str] = None  # Override: SHA256 hash, not int
     date: Optional[date] = None
     description: Optional[str] = None
     amount: float = 0.0
@@ -70,13 +71,28 @@ class TransactionRepository(BaseRepository[Transaction]):
             bank: str
             limit: int
         """
-        transactions = get_transactions(
-            month=filters.get("month"),
-            category_id=filters.get("category_id"),
-            bank=filters.get("bank"),
-            limit=filters.get("limit", 500)
-        )
-        return [self._entity_from_dict(t) for t in transactions]
+        # Convert month (YYYY-MM) to start_date and end_date for the filters dict
+        db_filters = {}
+        month = filters.get("month")
+        if month:
+            # Convert YYYY-MM to date range
+            db_filters["start_date"] = f"{month}-01"
+            # Get last day of month
+            import calendar
+            year, mon = int(month[:4]), int(month[5:7])
+            last_day = calendar.monthrange(year, mon)[1]
+            db_filters["end_date"] = f"{month}-{last_day:02d}"
+
+        if filters.get("category_id"):
+            db_filters["category_id"] = filters["category_id"]
+        if filters.get("bank"):
+            db_filters["bank"] = filters["bank"]
+
+        transactions = get_transactions(db_filters if db_filters else None)
+
+        # Apply limit in Python since db function may not support it
+        limit = filters.get("limit", 500)
+        return [self._entity_from_dict(t) for t in transactions[:limit]]
 
     def get_for_month(self, month: str) -> List[Transaction]:
         """Get all transactions for a specific month (YYYY-MM)."""
