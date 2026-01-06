@@ -1,6 +1,7 @@
 "use client";
 
 import { useFullReport } from "@/hooks/use-report";
+import { useFixedDiscretionary } from "@/hooks/use-budget";
 import {
   ExecutiveSummary,
   CategorySpendingTable,
@@ -8,6 +9,7 @@ import {
   DebtPriorityMatrix,
   RecommendationsList,
   MonthComparison,
+  BudgetRemaining,
 } from "@/components/report";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +25,9 @@ export default function HomePage() {
     error,
     refetch,
   } = useFullReport(currentMonth);
+
+  // v7.0 - Fixed vs Discretionary Budget
+  const { data: budgetData, isLoading: budgetLoading } = useFixedDiscretionary(currentMonth);
 
   if (isLoading) {
     return (
@@ -87,6 +92,12 @@ export default function HomePage() {
       <ExecutiveSummary
         data={report?.executive_summary}
         isLoading={isLoading}
+      />
+
+      {/* v7.0 - Fixed vs Discretionary Budget Overview */}
+      <BudgetRemaining
+        data={budgetData}
+        isLoading={budgetLoading}
       />
 
       {/* Main Report Grid */}

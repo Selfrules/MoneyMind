@@ -40,6 +40,7 @@ DEFAULT_CATEGORIES = [
     ("Risparmi Automatici", "\U0001F416", "#10B981"),  # Piggy bank - Revolut roundups
     ("Intrattenimento", "\U0001F3AC", "#9C27B0"),  # Clapper board - entertainment
     ("Regali", "\U0001F381", "#E91E63"),          # Gift - presents
+    ("Contanti", "\U0001F4B5", "#9CA3AF"),        # Cash - v7.0 cash expenses
     ("Altro", "\U0001F4E6", "#757575"),          # Package
 ]
 
@@ -2413,7 +2414,7 @@ def get_all_streaks() -> list[dict]:
 # ============================================================================
 
 def run_migrations() -> None:
-    """Run any pending schema migrations for v6.0."""
+    """Run any pending schema migrations for v6.0 and v7.0."""
     with get_db_context() as conn:
         cursor = conn.cursor()
 
@@ -2436,6 +2437,22 @@ def run_migrations() -> None:
             ("decisions", "user_confidence", "INTEGER"),
             ("decisions", "long_term_verified", "INTEGER DEFAULT 0"),
             ("decisions", "verified_at", "DATETIME"),
+
+            # ============================================================================
+            # v7.0 - Data Quality Improvements
+            # ============================================================================
+
+            # transactions - expense classification
+            ("transactions", "expense_type", "TEXT DEFAULT 'variable'"),  # 'fixed', 'variable', 'one_time'
+            ("transactions", "is_internal_transfer", "INTEGER DEFAULT 0"),
+            ("transactions", "categorization_method", "TEXT"),  # 'RULE', 'AI', 'MANUAL'
+            ("transactions", "categorization_confidence", "REAL DEFAULT 1.0"),
+
+            # recurring_expenses - type classification
+            ("recurring_expenses", "recurring_type", "TEXT DEFAULT 'subscription'"),  # 'subscription', 'financing', 'essential', 'service'
+            ("recurring_expenses", "cancellability", "TEXT DEFAULT 'easy'"),  # 'easy', 'medium', 'hard', 'locked'
+            ("recurring_expenses", "contract_end_date", "DATE"),
+            ("recurring_expenses", "auto_detected", "INTEGER DEFAULT 0"),
         ]
 
         for table, column, column_type in migrations:
@@ -2444,6 +2461,12 @@ def run_migrations() -> None:
             except Exception:
                 # Column already exists, skip
                 pass
+
+        # Seed new category if not exists
+        cursor.execute(
+            "INSERT OR IGNORE INTO categories (name, icon, color) VALUES (?, ?, ?)",
+            ("Contanti", "\U0001F4B5", "#9CA3AF")
+        )
 
 
 # Import timedelta for streak calculations

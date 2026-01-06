@@ -15,7 +15,38 @@ interface SubscriptionAuditItem {
   potential_savings: number;
   value_score: number;
   alternative: string | null;
+  // v7.0 - Type classification
+  recurring_type?: "subscription" | "financing" | "essential" | "service";
+  cancellability?: "easy" | "medium" | "hard" | "locked";
 }
+
+// v7.0 - Recurring type badge configuration
+const typeConfig: Record<string, { label: string; bgColor: string; textColor: string; borderColor: string }> = {
+  subscription: {
+    label: "Abbonamento",
+    bgColor: "bg-purple-500/20",
+    textColor: "text-purple-400",
+    borderColor: "border-purple-500/30",
+  },
+  financing: {
+    label: "Finanziamento",
+    bgColor: "bg-red-500/20",
+    textColor: "text-red-400",
+    borderColor: "border-red-500/30",
+  },
+  essential: {
+    label: "Essenziale",
+    bgColor: "bg-slate-500/20",
+    textColor: "text-slate-400",
+    borderColor: "border-slate-500/30",
+  },
+  service: {
+    label: "Servizio",
+    bgColor: "bg-cyan-500/20",
+    textColor: "text-cyan-400",
+    borderColor: "border-cyan-500/30",
+  },
+};
 
 interface SubscriptionAuditProps {
   data?: SubscriptionAuditItem[];
@@ -151,8 +182,17 @@ export function SubscriptionAudit({ data, isLoading }: SubscriptionAuditProps) {
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium text-foreground">{sub.name}</span>
+                    {/* v7.0 - Type badge */}
+                    {sub.recurring_type && typeConfig[sub.recurring_type] && (
+                      <Badge
+                        variant="outline"
+                        className={`${typeConfig[sub.recurring_type].bgColor} ${typeConfig[sub.recurring_type].textColor} ${typeConfig[sub.recurring_type].borderColor} text-xs`}
+                      >
+                        {typeConfig[sub.recurring_type].label}
+                      </Badge>
+                    )}
                     <Badge variant="outline" className="text-xs">
                       {sub.category}
                     </Badge>

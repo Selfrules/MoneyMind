@@ -163,8 +163,10 @@ class ReportAnalyzer:
         report = analyzer.generate_full_report("2026-01")
     """
 
-    # Category benchmarks (monthly, in EUR)
-    BENCHMARKS = {
+    # Fallback benchmarks (only used when no historical data)
+    # These are generic defaults - personalized benchmarks from user's
+    # 3-month average are preferred
+    FALLBACK_BENCHMARKS = {
         "Ristoranti": 150,
         "Caffe": 50,
         "Spesa": 350,
@@ -177,6 +179,8 @@ class ReportAnalyzer:
         "Sport": 50,
         "Salute": 50,
         "Regali": 50,
+        "Gatti": 80,
+        "Contanti": 200,
     }
 
     # Category icons
@@ -219,6 +223,43 @@ class ReportAnalyzer:
     def __init__(self):
         self.xray_analyzer = XRayAnalyzer()
         self.categories = {c["name"]: c for c in get_categories()}
+
+    def _get_personalized_benchmarks(self, month: str, averages: Dict[str, float]) -> Dict[str, float]:
+        """
+        Calculate personalized benchmarks based on user's 3-month average.
+
+        Logic:
+        - If user has historical data: benchmark = avg_3m * 1.1 (10% buffer)
+        - If no historical data: use FALLBACK_BENCHMARKS
+        - If not in fallback either: return None (will be skipped)
+
+        This makes judgments relative to YOUR spending patterns,
+        not arbitrary hardcoded values.
+
+        Args:
+            month: Current month being analyzed
+            averages: Dict of category -> 3-month average amounts
+
+        Returns:
+            Dict of category -> personalized benchmark
+        """
+        benchmarks = {}
+
+        for cat_name, avg_amount in averages.items():
+            if avg_amount > 0:
+                # Use user's own average + 10% buffer
+                benchmarks[cat_name] = avg_amount * 1.1
+            elif cat_name in self.FALLBACK_BENCHMARKS:
+                # No history - use generic fallback
+                benchmarks[cat_name] = self.FALLBACK_BENCHMARKS[cat_name]
+            # Otherwise category won't have a benchmark (skip judgment)
+
+        # Add fallbacks for categories not in averages
+        for cat_name, fallback in self.FALLBACK_BENCHMARKS.items():
+            if cat_name not in benchmarks:
+                benchmarks[cat_name] = fallback
+
+        return benchmarks
 
     def generate_full_report(self, month: str = None) -> FullFinancialReport:
         """Generate complete financial report for a month."""
@@ -341,19 +382,23 @@ class ReportAnalyzer:
                 continue
 
             avg_3m = averages.get(cat_name, amount)
-            benchmark = self.BENCHMARKS.get(cat_name, avg_3m * 1.2)
 
-            # Calculate judgment
+            # Get personalized benchmark (user's avg + 10% buffer)
+            personalized_benchmarks = self._get_personalized_benchmarks(month, averages)
+            benchmark = personalized_benchmarks.get(cat_name, avg_3m * 1.1)
+
+            # Calculate judgment based on personalized benchmark
+            # Thresholds are relative to YOUR spending patterns, not arbitrary values
             if benchmark > 0:
                 ratio = amount / benchmark
-                if ratio < 0.8:
-                    judgment = Judgment.EXCELLENT
-                elif ratio <= 1.0:
-                    judgment = Judgment.GOOD
-                elif ratio <= 1.5:
-                    judgment = Judgment.WARNING
+                if ratio < 0.9:
+                    judgment = Judgment.EXCELLENT  # < 90% of your benchmark
+                elif ratio <= 1.1:
+                    judgment = Judgment.GOOD       # 90-110% of your benchmark
+                elif ratio <= 1.4:
+                    judgment = Judgment.WARNING    # 110-140% of your benchmark
                 else:
-                    judgment = Judgment.CRITICAL
+                    judgment = Judgment.CRITICAL   # > 140% of your benchmark
             else:
                 judgment = Judgment.GOOD
 

@@ -56,6 +56,22 @@ class CategorySpendingItem(BaseModel):
     suggestion: Optional[str]
 
 
+class RecurringTypeEnum(str, Enum):
+    """Type of recurring expense (v7.0)."""
+    subscription = "subscription"  # Netflix, Spotify - easily cancellable
+    financing = "financing"        # Agos, loans - contract locked
+    essential = "essential"        # Utilities, rent - necessary
+    service = "service"            # Cleaning, maintenance - regular service
+
+
+class CancellabilityEnum(str, Enum):
+    """How easy to cancel this expense (v7.0)."""
+    easy = "easy"      # Can cancel anytime (subscriptions)
+    medium = "medium"  # Some friction (services)
+    hard = "hard"      # Necessary expense (utilities)
+    locked = "locked"  # Contract bound (financing)
+
+
 class SubscriptionAuditItem(BaseModel):
     name: str
     category: str
@@ -66,6 +82,9 @@ class SubscriptionAuditItem(BaseModel):
     potential_savings: float
     value_score: int
     alternative: Optional[str]
+    # v7.0 - Type classification
+    recurring_type: Optional[RecurringTypeEnum] = RecurringTypeEnum.subscription
+    cancellability: Optional[CancellabilityEnum] = CancellabilityEnum.easy
 
 
 class DebtPriorityItem(BaseModel):

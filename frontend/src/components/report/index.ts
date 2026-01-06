@@ -5,3 +5,4 @@ export { DebtPriorityMatrix } from "./debt-priority-matrix";
 export { RecommendationsList } from "./recommendations-list";
 export { MonthComparison } from "./month-comparison";
 export { JudgmentBadge, JudgmentDot } from "./judgment-badge";
+export { BudgetRemaining } from "./budget-remaining";

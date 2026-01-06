@@ -18,12 +18,88 @@ from datetime import datetime
 from app.schemas.budgets import (
     BudgetStatusResponse,
     BudgetSummaryResponse,
+    CategoryBudgetResponse,
+    FixedDiscretionaryResponse,
 )
 from app.api.deps import get_db
 from src.repositories.budget_repository import BudgetRepository
+from src.core_finance.budget_classifier import BudgetClassifier
 
 
 router = APIRouter()
+
+
+# ============================================================================
+# Fixed vs Discretionary Budget (MUST BE BEFORE /budgets/{month})
+# ============================================================================
+
+@router.get("/budgets/fixed-discretionary", response_model=FixedDiscretionaryResponse)
+async def get_fixed_discretionary_breakdown(
+    month: Optional[str] = Query(None, description="Month in YYYY-MM format")
+):
+    """
+    Get fixed vs discretionary expense breakdown.
+
+    Shows:
+    - Fixed expenses (must pay): rent, utilities, financing, health, transportation
+    - Discretionary expenses (can reduce): restaurants, shopping, entertainment
+
+    For each discretionary category, shows remaining daily budget.
+    """
+    if month is None:
+        month = datetime.now().strftime("%Y-%m")
+
+    classifier = BudgetClassifier()
+    summary = classifier.get_budget_summary(month)
+
+    return FixedDiscretionaryResponse(
+        month=summary.month,
+        total_income=summary.total_income,
+        total_fixed=summary.total_fixed,
+        total_discretionary_budget=summary.total_discretionary_budget,
+        total_discretionary_spent=summary.total_discretionary_spent,
+        discretionary_remaining=summary.discretionary_remaining,
+        savings_potential=summary.savings_potential,
+        fixed_breakdown=[
+            CategoryBudgetResponse(
+                category=b.category,
+                budget_type=b.budget_type,
+                monthly_budget=b.monthly_budget,
+                spent_this_month=b.spent_this_month,
+                remaining=b.remaining,
+                days_left_in_month=b.days_left_in_month,
+                daily_budget_remaining=b.daily_budget_remaining,
+                percent_used=b.percent_used,
+                status=b.status,
+            )
+            for b in summary.fixed_breakdown
+        ],
+        discretionary_breakdown=[
+            CategoryBudgetResponse(
+                category=b.category,
+                budget_type=b.budget_type,
+                monthly_budget=b.monthly_budget,
+                spent_this_month=b.spent_this_month,
+                remaining=b.remaining,
+                days_left_in_month=b.days_left_in_month,
+                daily_budget_remaining=b.daily_budget_remaining,
+                percent_used=b.percent_used,
+                status=b.status,
+            )
+            for b in summary.discretionary_breakdown
+        ],
+    )
+
+
+# ============================================================================
+# Standard Budget Endpoints
+# ============================================================================
+
+@router.get("/budgets", response_model=BudgetSummaryResponse)
+async def get_current_budget():
+    """Get budget summary for current month."""
+    month = datetime.now().strftime("%Y-%m")
+    return await get_budget_summary(month)
 
 
 @router.get("/budgets/{month}", response_model=BudgetSummaryResponse)
@@ -70,10 +146,3 @@ async def get_budget_summary(month: str):
         over_budget_count=over_budget_count,
         warning_count=warning_count
     )
-
-
-@router.get("/budgets", response_model=BudgetSummaryResponse)
-async def get_current_budget():
-    """Get budget summary for current month."""
-    month = datetime.now().strftime("%Y-%m")
-    return await get_budget_summary(month)
