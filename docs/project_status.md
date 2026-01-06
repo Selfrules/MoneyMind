@@ -1,6 +1,6 @@
 # Project Status - MoneyMind
 
-> Ultimo aggiornamento: 2026-01-06
+> Ultimo aggiornamento: 2026-01-07
 
 ## Mission Alignment
 
@@ -26,7 +26,7 @@
 
 ---
 
-## Versione Corrente: v6.0 (Desktop Dashboard)
+## Versione Corrente: v7.0 (Data Quality & Budget Classification)
 
 ### Stato Implementazione
 
@@ -36,7 +36,8 @@
 | **Sprint 2: Quick Wins** | ✅ COMPLETATO | Quick Wins Engine, Impact Calculator |
 | **Sprint 3: Sicurezza** | ✅ COMPLETATO | Debt Journey, Goals, Celebrations |
 | **Sprint 4: FIRE** | ✅ COMPLETATO | FIRE Calculator, Milestones, Scenarios |
-| **Sprint 5: Coaching** | 🚧 IN CORSO | AI Coach chat miglioramenti |
+| **Sprint 5: Data Quality** | ✅ COMPLETATO | Budget Classifier, Recurring Detector, Personalized Benchmarks |
+| **Sprint 6: Coaching** | 🚧 IN CORSO | AI Coach chat miglioramenti |
 
 ---
 
@@ -55,7 +56,26 @@
 
 ## Feature Completate
 
-### v6.0 - Desktop Dashboard (CURRENT)
+### v7.0 - Data Quality & Budget Classification (CURRENT)
+
+#### Budget Classification System
+- [x] Fixed vs Discretionary expense classification
+- [x] Daily remaining budget calculation
+- [x] Personalized benchmarks (3-month user average)
+- [x] BudgetRemaining frontend component
+
+#### Recurring Detection Engine
+- [x] Auto-detection from 6-month transaction history
+- [x] Confidence scoring with frequency analysis
+- [x] Provider classification (subscription/financing/essential/service)
+- [x] Cancellability assessment
+
+#### API Enhancements
+- [x] `/api/budgets/fixed-discretionary` endpoint
+- [x] RecurringTypeEnum and CancellabilityEnum
+- [x] Enhanced subscription audit with recurring_type
+
+### v6.0 - Desktop Dashboard
 
 #### Desktop Layout
 - [x] Sidebar 250px con Freedom Score e navigazione
@@ -185,21 +205,28 @@
 
 ## Dove ci siamo interrotti
 
+**Sessione 2026-01-07 (Completata)**:
+- ✅ Implementato piano v7.0 Data Quality & Budget Classification
+- ✅ Creato `budget_classifier.py` per Fixed vs Discretionary
+- ✅ Creato `recurring_detector.py` per auto-detection ricorrenti
+- ✅ Aggiornato `report_analyzer.py` con benchmark personalizzati
+- ✅ Nuovo endpoint `/api/budgets/fixed-discretionary`
+- ✅ Nuovo componente `BudgetRemaining` nel frontend
+- ✅ Testato end-to-end con Playwright
+- ✅ Freedom Score B (75/100) verificato
+
 **Sessione 2026-01-06 (Completata)**:
 - ✅ Implementato piano v6.0 Desktop Dashboard
 - ✅ Convertite tutte le pagine a desktop layout
-- ✅ Testato end-to-end con Playwright
-- ✅ Screenshots salvati in `.playwright-mcp/`
-- ✅ Freedom Score B (75/100) verificato
 - ✅ FIRE Calculator funzionante (€542k target, 17.5 anni)
 
 **Stato applicazione**:
 - Backend: http://localhost:8001 (FastAPI)
-- Frontend: http://localhost:3001 (Next.js)
+- Frontend: http://localhost:3000 (Next.js)
 - Database: SQLite con 1717 transazioni categorizzate
 
 **Prossimi step opzionali**:
-1. Sprint 5: Coaching improvements
+1. Sprint 6: Coaching improvements
 2. PWA manifest
 3. Deploy produzione
 
@@ -215,7 +242,7 @@
 | Accuracy categorizzazione | 99.9% |
 | Tabelle database | 19+ |
 | Repository classes | 7 |
-| Core finance modules | 9 |
+| Core finance modules | 12 |
 | AI modules | 6 |
 | API endpoints | 25+ |
 | React components | 50+ |

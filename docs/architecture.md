@@ -1,4 +1,4 @@
-# Architettura MoneyMind v5.0
+# Architettura MoneyMind v7.0
 
 > **Mission**: Accompagnare Mattia verso la libertà finanziaria attraverso le 4 fasi: Diagnosi → Ottimizzazione → Sicurezza → Crescita
 >
@@ -49,7 +49,9 @@
 │ - Health Score│     │ - advisor       │     │ - debt_planner  │
 │ - Debt Calc   │     │ - insight_engine│     │ - budget_gen    │
 │               │     │ - action_planner│     │ - replanner     │
-│               │     │ - recurring_opt │     │                 │
+│               │     │ - recurring_opt │     │ - budget_class  │
+│               │     │                 │     │ - recurring_det │
+│               │     │                 │     │ - report_analyz │
 └───────────────┘     └─────────────────┘     └─────────────────┘
         │                       │                       │
         └───────────────────────┼───────────────────────┘
@@ -147,7 +149,10 @@ MoneyMind/
 │   │   ├── baseline.py       # 3-month baseline calculator
 │   │   ├── debt_planner.py   # Avalanche/Snowball payment plans
 │   │   ├── budget_generator.py # Auto-budget from debt plan
-│   │   └── replanner.py      # Monthly re-planning engine
+│   │   ├── replanner.py      # Monthly re-planning engine
+│   │   ├── budget_classifier.py # Fixed vs Discretionary (v7.0)
+│   │   ├── recurring_detector.py # Auto-detect recurring (v7.0)
+│   │   └── report_analyzer.py # Personalized benchmarks (v7.0)
 │   │
 │   ├── repositories/         # Data access layer
 │   │   ├── base.py           # Abstract repository base
@@ -181,13 +186,15 @@ MoneyMind/
 | GET | `/api/insights` | Active insights |
 | POST | `/api/insights/{id}/read` | Mark insight as read |
 
-### Money Tab Endpoints (In Progress)
+### Money Tab Endpoints
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/transactions` | Paginated list with filters |
 | GET | `/api/budgets/{month}` | Monthly budget by category |
+| GET | `/api/budgets/fixed-discretionary` | Fixed vs Discretionary breakdown (v7.0) |
 | GET | `/api/recurring` | Recurring expenses |
 | GET | `/api/trends` | 6-month trend data |
+| GET | `/api/report/full` | Full financial report with personalized benchmarks |
 
 ### Coach Tab Endpoints (Planned)
 | Method | Endpoint | Description |

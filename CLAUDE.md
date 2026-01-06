@@ -36,9 +36,15 @@ Per dettagli completi: [docs/MISSION.md](docs/MISSION.md)
 
 ## Project Overview
 
-MoneyMind v5.0 is an AI-First, Mobile-Native, Freedom-Focused personal finance coach. It transforms from a passive tracker to a **directive assistant** that actively helps users reduce debt payoff time and increase monthly savings through concrete daily actions.
+MoneyMind v7.0 is an AI-First, Mobile-Native, Freedom-Focused personal finance coach. It transforms from a passive tracker to a **directive assistant** that actively helps users reduce debt payoff time and increase monthly savings through concrete daily actions.
 
 **Architecture**: Next.js 15 frontend + FastAPI backend + existing Python business logic
+
+**Key v7.0 Features**:
+- Personalized benchmarks (based on YOUR 3-month average, not hardcoded values)
+- Auto-detection of recurring expenses with confidence scoring
+- Fixed vs Discretionary expense classification with daily budget remaining
+- Enhanced subscription audit with recurring_type (subscription/financing/essential/service)
 
 ## Development Commands
 
@@ -67,7 +73,7 @@ Create a `.env` file with:
 ANTHROPIC_API_KEY=your_api_key_here
 ```
 
-## Architecture (v5.0)
+## Architecture (v7.0)
 
 ### Frontend + Backend Separation
 
@@ -88,9 +94,11 @@ ANTHROPIC_API_KEY=your_api_key_here
 | GET | `/api/actions/today` | Daily actions (prioritized) |
 | POST | `/api/actions/{id}/complete` | Mark action complete |
 | GET | `/api/insights` | Active insights |
-| GET | `/api/transactions` | Transactions with filters (WIP) |
-| GET | `/api/budgets/{month}` | Monthly budgets (WIP) |
-| POST | `/api/chat` | AI coach chat (SSE streaming, WIP) |
+| GET | `/api/transactions` | Transactions with filters |
+| GET | `/api/budgets/{month}` | Monthly budgets by category |
+| GET | `/api/budgets/fixed-discretionary` | Fixed vs Discretionary budget breakdown (v7.0) |
+| GET | `/api/report/full` | Full financial report |
+| POST | `/api/chat` | AI coach chat (SSE streaming) |
 
 ### Frontend Structure
 
@@ -146,6 +154,9 @@ backend/app/
 - `debt_planner.py` - Avalanche/Snowball payment plans
 - `budget_generator.py` - Auto-generate budgets from debt plan
 - `replanner.py` - Monthly re-planning engine
+- `budget_classifier.py` - Fixed vs Discretionary expense classification (v7.0)
+- `recurring_detector.py` - Auto-detection of recurring expenses (v7.0)
+- `report_analyzer.py` - Full report with personalized benchmarks (v7.0)
 
 #### Repository Pattern (`src/repositories/`)
 - `base.py` - Abstract repository base class
@@ -232,6 +243,23 @@ Edit `src/ai/categorizer.py` - add patterns to appropriate `*_PATTERNS` list.
 | Viaggi | Booking, Airbnb, hotel, Trainline |
 | Trasporti | Trenitalia, Italo, Uber, Telepass, benzina |
 | Gatti | Arcaplanet, Zooplus, veterinario |
+| Intrattenimento | cinema, teatro, concerti, eventi |
+| Regali | regalo, gift, present |
+| Contanti | ATM, prelievo, bancomat |
+
+## Expense Classification (v7.0)
+
+**Fixed Expenses** (must pay):
+- Affitto, Utenze, Finanziamenti, Salute, Cura Personale, Trasporti, Spesa, Gatti, Contanti
+
+**Discretionary Expenses** (can reduce):
+- Ristoranti, Caffe, Shopping, Abbonamenti, Viaggi, Intrattenimento, Regali
+
+**Recurring Types**:
+- `subscription` - Netflix, Spotify (easily cancellable)
+- `financing` - Agos, loans (contract locked)
+- `essential` - Utilities, rent (necessary)
+- `service` - Cleaning, maintenance (regular service)
 
 ## Database Schema (v4.0)
 

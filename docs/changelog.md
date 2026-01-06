@@ -4,6 +4,74 @@ Questo file traccia le release milestone del progetto.
 
 ---
 
+## v7.0 - 2026-01-07 (Data Quality & Budget Classification)
+
+**Miglioramento qualità dati e classificazione spese**
+
+Release focalizzata sulla precisione dei dati finanziari attraverso benchmark personalizzati, auto-detection ricorrenti, e classificazione Fixed vs Discretionary.
+
+### Nuovi Moduli Core Finance
+
+#### Budget Classifier (`budget_classifier.py`)
+- Classificazione automatica spese in Fixed vs Discretionary
+- **Fixed**: Affitto, Utenze, Finanziamenti, Salute, Trasporti, Spesa, Gatti, Contanti
+- **Discretionary**: Ristoranti, Caffe, Shopping, Abbonamenti, Viaggi, Intrattenimento, Regali
+- Calcolo budget giornaliero rimanente per categoria
+- Status indicators: on_track, warning, over_budget
+
+#### Recurring Detector (`recurring_detector.py`)
+- Auto-detection pattern ricorrenti da storico 6 mesi
+- Classificazione tipo: subscription, financing, essential, service
+- Confidence scoring con analisi frequenza
+- Provider mapping per categorizzazione automatica
+- Cancellability assessment (easy, medium, hard, locked)
+
+#### Report Analyzer Enhancement
+- Benchmark personalizzati basati su media 3 mesi utente (non più hardcoded)
+- Buffer 10% su media personale per target realistici
+- Fallback values solo per categorie nuove
+- Judgment thresholds: <90% excellent, 90-110% good, 110-140% warning, >140% critical
+
+### API Enhancements
+- `GET /api/budgets/fixed-discretionary` - Breakdown Fixed vs Discretionary
+- `RecurringTypeEnum` - subscription, financing, essential, service
+- `CancellabilityEnum` - easy, medium, hard, locked
+- `CategoryBudgetResponse` con daily_budget_remaining
+
+### Frontend
+- Nuovo componente `BudgetRemaining` con progress bars
+- Subscription audit con badge tipo ricorrente
+- Visual status indicators per budget
+
+### Database
+- Nuovi campi: expense_type, is_internal_transfer
+- Nuovi campi: categorization_method, categorization_confidence
+- Categoria "Contanti" configurata
+
+---
+
+## v6.0 - 2026-01-06 (Desktop Dashboard)
+
+**Desktop Layout con Full Financial Report**
+
+Transizione da mobile-first a desktop layout con sidebar e Financial X-Ray completo.
+
+### Desktop Layout
+- Sidebar 250px con Freedom Score e navigazione
+- Header con search e notifications placeholder
+- Fluid main content area
+- Tutte le pagine convertite a desktop layout
+
+### Full Financial Report
+- Executive Summary con KPI cards
+- Category Spending con personalized judgment
+- Subscription Audit con action items
+- Debt Priority Matrix
+- Recommendations list
+- Month-over-month comparison
+
+---
+
 ## v5.1 - 2026-01-06 (Mission Alignment)
 
 **Definizione Missione e Gap Analysis**
