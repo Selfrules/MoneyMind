@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   Wallet,
-  MessageSquare,
   Target,
   Flame,
   User,
@@ -46,11 +45,6 @@ const mainNavItems: NavItem[] = [
     href: "/money",
     label: "Money",
     icon: <Wallet className="h-5 w-5" />,
-  },
-  {
-    href: "/coach",
-    label: "Coach",
-    icon: <MessageSquare className="h-5 w-5" />,
   },
   {
     href: "/goals",

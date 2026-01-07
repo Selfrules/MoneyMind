@@ -74,6 +74,22 @@ SERVICE_PROVIDERS = [
     "giardiniere", "manutenzione", "personal trainer", "fisioterapista"
 ]
 
+# Categories that should NEVER be considered subscriptions
+# These represent regular shopping/dining, not cancellable subscriptions
+NON_SUBSCRIPTION_CATEGORIES = [
+    "Spesa",           # Grocery shopping - regular but not a subscription
+    "Ristoranti",      # Dining out - regular but not a subscription
+    "Caffe",           # Coffee/bars - regular but not a subscription
+    "Food Delivery",   # Delivery apps - individual orders, not subscription
+    "Trasferimenti",   # Personal transfers - not subscriptions
+    "Contanti",        # Cash withdrawals - not subscriptions
+    "Shopping",        # General shopping - regular but not a subscription
+    "Viaggi",          # Travel - not regular subscriptions
+    "Gatti",           # Pet expenses - regular but not cancellable subscriptions
+    "Salute",          # Health - not regular subscriptions
+    "Barbiere",        # Haircuts - regular but not a subscription
+]
+
 
 @dataclass
 class RecurringPattern:
@@ -235,14 +251,18 @@ class RecurringDetector:
         if confidence < 0.5:
             return None
 
-        # Extract provider and classify type
-        provider = self._extract_provider(transactions[0].get("description", ""))
-        recurring_type = self._classify_recurring_type(provider, transactions[0].get("description", ""))
-        cancellability = self._determine_cancellability(recurring_type, provider)
-
-        # Get category info
+        # Get category info FIRST (needed for classification)
         category_id = transactions[0].get("category_id")
         category_name = transactions[0].get("category_name", "Altro")
+
+        # Extract provider and classify type
+        provider = self._extract_provider(transactions[0].get("description", ""))
+        recurring_type = self._classify_recurring_type(
+            provider,
+            transactions[0].get("description", ""),
+            category_name  # Pass category for better classification
+        )
+        cancellability = self._determine_cancellability(recurring_type, provider)
 
         return RecurringPattern(
             provider=provider,
@@ -331,8 +351,17 @@ class RecurringDetector:
 
         return min(confidence, 1.0)
 
-    def _classify_recurring_type(self, provider: str, description: str) -> str:
-        """Classify the recurring expense type."""
+    def _classify_recurring_type(self, provider: str, description: str, category_name: str = "") -> str:
+        """
+        Classify the recurring expense type.
+
+        Returns:
+            - 'financing': Loans, installments - contract locked
+            - 'essential': Utilities, telecom, insurance - necessary
+            - 'service': Cleaning, maintenance - regular service
+            - 'subscription': Streaming, software - cancellable subscription
+            - 'regular_expense': Regular shopping/dining - NOT a subscription
+        """
         desc_lower = (description or "").lower()
         provider_lower = provider.lower()
 
@@ -356,8 +385,14 @@ class RecurringDetector:
             if p in provider_lower or p in desc_lower:
                 return "subscription"
 
-        # Default to subscription for unknown recurring
-        return "subscription"
+        # NEW: Check if category suggests this is NOT a subscription
+        # Regular shopping, dining, etc. should not appear in subscription audit
+        if category_name in NON_SUBSCRIPTION_CATEGORIES:
+            return "regular_expense"
+
+        # Default to subscription only if we have high confidence it's a real subscription
+        # For unknown recurring with non-matching category, mark as regular_expense
+        return "regular_expense"
 
     def _determine_cancellability(self, recurring_type: str, provider: str) -> str:
         """Determine how easy it is to cancel this expense."""

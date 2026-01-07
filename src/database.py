@@ -41,6 +41,7 @@ DEFAULT_CATEGORIES = [
     ("Intrattenimento", "\U0001F3AC", "#9C27B0"),  # Clapper board - entertainment
     ("Regali", "\U0001F381", "#E91E63"),          # Gift - presents
     ("Contanti", "\U0001F4B5", "#9CA3AF"),        # Cash - v7.0 cash expenses
+    ("Food Delivery", "\U0001F6F5", "#F97316"),  # Motor scooter - JustEat, Deliveroo
     ("Altro", "\U0001F4E6", "#757575"),          # Package
 ]
 

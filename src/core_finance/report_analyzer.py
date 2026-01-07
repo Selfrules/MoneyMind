@@ -185,20 +185,37 @@ class ReportAnalyzer:
 
     # Category icons
     ICONS = {
-        "Ristoranti": "🍽️",
-        "Caffe": "☕",
-        "Spesa": "🛒",
-        "Shopping": "🛍️",
-        "Abbonamenti": "📺",
-        "Trasporti": "🚗",
-        "Utenze": "💡",
-        "Viaggi": "✈️",
-        "Intrattenimento": "🎬",
-        "Sport": "🏋️",
-        "Salute": "🏥",
-        "Regali": "🎁",
-        "Finanziamenti": "💳",
+        # Income
         "Stipendio": "💰",
+        "Risparmi Automatici": "🐖",
+        # Housing
+        "Affitto": "🏠",
+        "Utenze": "💡",
+        # Food & Drink
+        "Spesa": "🛒",
+        "Ristoranti": "🍕",
+        "Caffe": "☕",
+        "Food Delivery": "🛵",
+        # Personal
+        "Salute": "💊",
+        "Psicologo": "🧠",
+        "Barbiere": "💈",
+        "Palestra": "🏋️",
+        # Transport & Travel
+        "Trasporti": "🚗",
+        "Viaggi": "✈️",
+        # Shopping & Entertainment
+        "Shopping": "🛍️",
+        "Abbonamenti": "📱",
+        "Intrattenimento": "🎭",
+        "Regali": "🎁",
+        # Pets
+        "Gatti": "🐱",
+        # Finance
+        "Finanziamenti": "💳",
+        "Contanti": "💵",
+        "Trasferimenti": "🔄",
+        # Default
         "Altro": "📦",
     }
 
@@ -493,15 +510,49 @@ class ReportAnalyzer:
         """Audit all subscriptions with recommendations."""
         audits = []
 
+        # Categories that should NOT appear in subscription audit
+        # These are regular expenses, not cancellable subscriptions
+        NON_SUBSCRIPTION_CATEGORIES = [
+            "Spesa", "Ristoranti", "Caffe", "Food Delivery",
+            "Trasferimenti", "Contanti", "Shopping", "Viaggi",
+            "Gatti", "Salute", "Barbiere"
+        ]
+
         recurring = get_recurring_expenses(active_only=True)
 
         for rec in recurring:
             name = rec.get("pattern_name", "Sconosciuto")
             category = rec.get("category_name", "Abbonamenti")
             monthly = abs(rec.get("avg_amount", 0) or 0)
+            recurring_type = rec.get("recurring_type", "subscription")
 
+            # Skip small amounts
             if monthly < 1:
                 continue
+
+            # Skip regular expenses - they are NOT subscriptions
+            if recurring_type == "regular_expense":
+                continue
+
+            # Skip non-subscription categories (for items created before v7.0 fix)
+            if category in NON_SUBSCRIPTION_CATEGORIES:
+                continue
+
+            # Skip items with transaction ID-like names (long numbers)
+            # These are likely payment references, not real subscription names
+            if len(name) > 15 and name.replace("-", "").replace(" ", "").isdigit():
+                continue
+
+            # Skip "Altro" category unless it's a known subscription provider
+            if category == "Altro":
+                name_lower_check = name.lower()
+                known_subscriptions = [
+                    "netflix", "spotify", "amazon", "disney", "github", "notion",
+                    "openai", "chatgpt", "figma", "adobe", "google", "microsoft",
+                    "audible", "steam", "playstation", "xbox"
+                ]
+                if not any(sub in name_lower_check for sub in known_subscriptions):
+                    continue
 
             annual = monthly * 12
             name_lower = name.lower()

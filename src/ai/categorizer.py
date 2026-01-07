@@ -41,6 +41,7 @@ CATEGORIES = [
     "Risparmi Automatici",
     "Intrattenimento",
     "Regali",
+    "Food Delivery",
     "Altro",
 ]
 
@@ -169,6 +170,12 @@ SUBSCRIPTION_PATTERNS = [
     r"canone\s*piano",  # Revolut plan fee
     r"gamma",  # AI slides tool
     r"vtsup",  # Dating site subscription
+    r"itunes",  # Apple iTunes
+    r"cursor",  # AI IDE
+    r"easygen",  # AI tool
+    r"now\s*tv",  # Streaming
+    r"twitter",  # Twitter/X Blue
+    r"easyretro",  # Tool subscription
 ]
 
 # Shopping patterns
@@ -194,14 +201,21 @@ SHOPPING_PATTERNS = [
     # r"floriba",  # REMOVED: Floriba is Terme Asmana (wellness), not shopping
     r"sonosystem",  # Electronics
     r"ethical\s*grace",  # Shop
+    r"feltrinelli",  # Libri
+    r"fincut\s*ital",  # Shopping
+    r"bertoncelli",  # Shopping
+    r"\beg\b",  # Shopping
 ]
 
-# Restaurant/Food delivery patterns
-RESTAURANT_PATTERNS = [
+# Food delivery patterns (separated from restaurants)
+FOOD_DELIVERY_PATTERNS = [
     r"just\s*eat",
     r"deliveroo",
     r"glovo",
     r"uber\s*eats",
+]
+
+RESTAURANT_PATTERNS = [
     r"ristorante",
     r"pizzeria",
     r"trattoria",
@@ -257,6 +271,23 @@ RESTAURANT_PATTERNS = [
     r"il\s*timone",  # Restaurant
     r"scaraboci",  # Restaurant
     r"il\s*grammofono",  # Restaurant
+    r"camst",  # Mensa aziendale
+    r"gams",   # Mensa aziendale
+    r"tubooza",  # Pub
+    r"caffetteria\s*miky",  # Bar/restaurant
+    r"macelleria\s*lar",  # Macelleria ristorante
+    r"il\s*tempio\s*ristorante",
+    r"osteria\s*della\s*vecchia",
+    r"vetro\s*mangiare",  # Ristorante healthy
+    r"vecchia\s*malga",  # Malga/negozio
+    r"sette\s*calici",  # Enoteca wine bar
+    r"tola\s*dolza",  # Ristorante
+    r"principe\s*lievito",  # Ristorante
+    r"pizzartist",  # Pizzeria
+    r"piadineria\s*marilyn",  # Piadineria
+    r"la\s*baracca\s*sul\s*fiume",  # Ristorante
+    r"il\s*cucinino",  # Ristorante
+    r"foodstock",  # Pub
 ]
 
 # Bar/Cafe patterns
@@ -280,6 +311,11 @@ CAFE_PATTERNS = [
     r"blue\s*hush",
     r"alleria",
     r"gafiubar",  # Pub San Lucido
+    r"dolci\s*artisti",  # Pasticceria
+    r"l.ora\s*del\s*caff",  # Bar
+    r"kinotto",  # Bar
+    r"cassa\s*principale",  # Bar
+    r"colazione\s*da\s*tiffany",  # Cafe
 ]
 
 # Veterinary/Pets patterns
@@ -294,6 +330,8 @@ PETS_PATTERNS = [
     r"zarpas",
     r"arca\s*di\s*no[eè]",
     r"arcacat",  # Cat shop
+    r"vignola\s*pet",  # Pet shop
+    r"6624.*vignola\s*pet",  # Vignola pet with code
 ]
 
 # Transport patterns
@@ -320,6 +358,9 @@ TRANSPORT_PATTERNS = [
     r"af\s*petroli",
     r"benzin",
     r"carburante",
+    r"easypark",  # Parcheggi app
+    r"vega\s*carburanti",  # Benzina
+    r"santander\s*cycles",  # Bike sharing London
 ]
 
 # Health/Pharmacy patterns
@@ -336,6 +377,10 @@ HEALTH_PATTERNS = [
     r"ottico",
     r"estetista",
     r"simona\s*barbaglia",  # Estetista
+    r"anelli\s*rebecca",  # Estetista laser
+    r"prozis",  # Integratori
+    r"original\s*sun",  # Solarium
+    r"saponeria",  # Cosmetici/cura personale
 ]
 
 # Barber/Hair patterns
@@ -385,6 +430,7 @@ GROCERY_PATTERNS = [
     r"alimentari",
     r"macelleria",
     r"9810\s*spilamberto",  # Local shop
+    r"nutribees",  # Food delivery healthy
 ]
 
 PSYCHOLOGIST_PATTERNS = [
@@ -429,6 +475,10 @@ TRAVEL_PATTERNS = [
     r"trainline",
     r"the\s*social\s*hub",  # Hostel chain
     r"floriba",  # Terme Asmana (wellness/spa)
+    r"miami\s*beach",  # Stabilimento balneare
+    r"figli\s*del\s*sole",  # Stabilimento balneare
+    r"trip\.com",  # Travel booking
+    r"iberia",  # Voli
     r"terme",
     r"seccheto",  # Elba beach location
     r"oglasa",  # Elba ferry/wine
@@ -447,6 +497,13 @@ ENTERTAINMENT_PATTERNS = [
     r"chibagni",
     r"bp\s*private\s*club",
     r"seminatore",  # PayPal transfer for entertainment
+    r"overgear",  # Gaming
+    r"unipol\s*arena",  # Concerti
+    r"uci\s*bologna",  # Cinema
+    r"xsolla",  # Gaming
+    r"fanfix",  # Content platform
+    r"ketofund",  # Keto community
+    r"district\s*850",  # Bowling Florida
 ]
 
 # Gifts patterns
@@ -529,7 +586,11 @@ def _categorize_by_rules(transaction: dict) -> Optional[str]:
     if _match_pattern(description, PETS_PATTERNS):
         return "Gatti"
 
-    # Restaurants and food delivery
+    # Food delivery (JustEat, Deliveroo, etc.) - check before restaurants
+    if _match_pattern(description, FOOD_DELIVERY_PATTERNS):
+        return "Food Delivery"
+
+    # Restaurants
     if _match_pattern(description, RESTAURANT_PATTERNS):
         return "Ristoranti"
 

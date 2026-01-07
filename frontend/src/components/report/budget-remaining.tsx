@@ -17,13 +17,21 @@ interface CategoryBudget {
   status: "on_track" | "warning" | "over_budget";
 }
 
+// API response interface (snake_case)
+interface FixedDiscretionaryData {
+  month: string;
+  total_income: number;
+  total_fixed: number;
+  total_discretionary_budget: number;
+  total_discretionary_spent: number;
+  discretionary_remaining: number;
+  savings_potential: number;
+  fixed_breakdown: CategoryBudget[];
+  discretionary_breakdown: CategoryBudget[];
+}
+
 interface BudgetRemainingProps {
-  month?: string;
-  totalDiscretionaryBudget?: number;
-  totalDiscretionarySpent?: number;
-  discretionaryRemaining?: number;
-  savingsPotential?: number;
-  discretionaryBreakdown?: CategoryBudget[];
+  data?: FixedDiscretionaryData;
   isLoading?: boolean;
 }
 
@@ -61,14 +69,16 @@ const statusConfig = {
 };
 
 export function BudgetRemaining({
-  month,
-  totalDiscretionaryBudget = 0,
-  totalDiscretionarySpent = 0,
-  discretionaryRemaining = 0,
-  savingsPotential = 0,
-  discretionaryBreakdown = [],
+  data,
   isLoading,
 }: BudgetRemainingProps) {
+  // Destructure data from API response (snake_case)
+  const totalDiscretionaryBudget = data?.total_discretionary_budget ?? 0;
+  const totalDiscretionarySpent = data?.total_discretionary_spent ?? 0;
+  const discretionaryRemaining = data?.discretionary_remaining ?? 0;
+  const savingsPotential = data?.savings_potential ?? 0;
+  const discretionaryBreakdown = data?.discretionary_breakdown ?? [];
+
   if (isLoading) {
     return (
       <Card>

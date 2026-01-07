@@ -43,6 +43,7 @@ FIXED_EXPENSE_CATEGORIES = [
 DISCRETIONARY_CATEGORIES = [
     "Ristoranti",        # Can reduce - dining out
     "Caffe",             # Can reduce - coffee/snacks
+    "Food Delivery",     # Can reduce - delivery services (JustEat, Deliveroo)
     "Shopping",          # Can eliminate - shopping
     "Abbonamenti",       # Can optimize - subscriptions
     "Viaggi",            # Can postpone - travel
