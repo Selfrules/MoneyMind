@@ -104,11 +104,23 @@ async def get_current_budget():
 
 @router.get("/budgets/{month}", response_model=BudgetSummaryResponse)
 async def get_budget_summary(month: str):
-    """Get budget summary for a month with spending status."""
-    repo = BudgetRepository()
+    """
+    Get budget summary for a month with spending status.
 
-    # Get budget status list
-    status_list = repo.get_status_list(month)
+    Uses BudgetClassifier to calculate budgets dynamically from 3-month baseline,
+    rather than reading from the (often empty) budgets table.
+    """
+    from src.database import get_categories
+
+    # Get category info for ID and icon lookup
+    categories_db = {c["name"]: c for c in get_categories()}
+
+    # Use BudgetClassifier to get dynamic budget data (same as Dashboard uses)
+    classifier = BudgetClassifier()
+    summary = classifier.get_budget_summary(month)
+
+    # Combine fixed and discretionary breakdowns
+    all_budgets = summary.fixed_breakdown + summary.discretionary_breakdown
 
     # Build response
     categories = []
@@ -117,24 +129,40 @@ async def get_budget_summary(month: str):
     over_budget_count = 0
     warning_count = 0
 
-    for status in status_list:
+    for budget in all_budgets:
+        # Skip categories with no activity
+        if budget.monthly_budget == 0 and budget.spent_this_month == 0:
+            continue
+
+        # Get category info from database
+        cat_info = categories_db.get(budget.category, {})
+        cat_id = cat_info.get("id", 0)
+        cat_icon = cat_info.get("icon", "📦")
+
+        # Map status: 'on_track' -> 'ok', 'over_budget' -> 'exceeded'
+        status = budget.status
+        if status == "on_track":
+            status = "ok"
+        elif status == "over_budget":
+            status = "exceeded"
+
         categories.append(BudgetStatusResponse(
-            category_id=status.category_id,
-            category_name=status.category_name or "",
-            category_icon=status.category_icon,
-            budget_amount=status.budget_amount,
-            spent_amount=status.spent_amount,
-            remaining=status.remaining,
-            percent_used=status.percent_used,
-            status=status.status
+            category_id=cat_id,
+            category_name=budget.category,
+            category_icon=cat_icon,
+            budget_amount=budget.monthly_budget,
+            spent_amount=budget.spent_this_month,
+            remaining=budget.remaining,
+            percent_used=budget.percent_used,
+            status=status
         ))
 
-        total_budget += status.budget_amount
-        total_spent += status.spent_amount
+        total_budget += budget.monthly_budget
+        total_spent += budget.spent_this_month
 
-        if status.status == "exceeded":
+        if status == "exceeded":
             over_budget_count += 1
-        elif status.status == "warning":
+        elif status == "warning":
             warning_count += 1
 
     return BudgetSummaryResponse(

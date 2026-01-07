@@ -23,14 +23,37 @@ from src.repositories.recurring_repository import RecurringRepository
 
 router = APIRouter()
 
+# Categories that are NOT real subscriptions - regular shopping/dining patterns
+# These should not appear in the recurring expenses list
+NON_SUBSCRIPTION_CATEGORIES = [
+    "Spesa",           # Grocery shopping - regular but not a subscription
+    "Ristoranti",      # Dining out - regular but not a subscription
+    "Caffe",           # Coffee/bars - regular but not a subscription
+    "Food Delivery",   # Delivery apps - individual orders, not subscription
+    "Trasferimenti",   # Personal transfers - not subscriptions
+    "Contanti",        # Cash withdrawals - not subscriptions
+    "Shopping",        # General shopping - regular but not a subscription
+    "Viaggi",          # Travel - not regular subscriptions
+    "Gatti",           # Pet expenses - regular but not cancellable subscriptions
+    "Salute",          # Health - not regular subscriptions
+    "Barbiere",        # Haircuts - regular but not a subscription
+    "Altro",           # Miscellaneous - often false positives
+]
+
 
 @router.get("/recurring", response_model=RecurringSummaryResponse)
 async def get_recurring_summary():
-    """Get summary of all recurring expenses."""
+    """Get summary of all recurring expenses (filtered to real subscriptions)."""
     repo = RecurringRepository()
 
     # Get all active recurring expenses
-    expenses = repo.get_active()
+    all_expenses = repo.get_active()
+
+    # Filter out non-subscription categories (same logic as subscription audit)
+    expenses = [
+        exp for exp in all_expenses
+        if exp.category_name not in NON_SUBSCRIPTION_CATEGORIES
+    ]
 
     # Build response
     expense_list = []

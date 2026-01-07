@@ -175,7 +175,7 @@ async def get_monthly_report(
     for cat_data in top_cats[:5]:
         top_categories.append({
             "category": cat_data.get("category_name", "Unknown"),
-            "amount": cat_data.get("total", 0)
+            "amount": cat_data.get("amount", 0)
         })
 
     # Get savings rate
@@ -183,9 +183,9 @@ async def get_monthly_report(
 
     return MonthlyReportResponse(
         month=month,
-        income=snapshot.get("monthly_income", 0),
-        expenses=snapshot.get("monthly_expenses", 0),
-        savings=snapshot.get("monthly_income", 0) - snapshot.get("monthly_expenses", 0),
+        income=snapshot.get("total_income", 0),
+        expenses=snapshot.get("total_expenses", 0),
+        savings=snapshot.get("total_income", 0) - snapshot.get("total_expenses", 0),
         savings_rate=savings_rate,
         vs_previous_month_savings=None,  # Would need previous month calculation
         top_expense_categories=top_categories,

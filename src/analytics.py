@@ -6,7 +6,7 @@ Financial KPI calculations, debt payoff strategies, and trend analysis.
 
 from datetime import datetime, timedelta
 from typing import Optional
-from database import (
+from src.database import (
     get_transactions, get_monthly_summary, get_debts, get_total_debt,
     get_goals, get_user_profile, get_latest_balances, save_kpi_snapshot,
     get_kpi_history, get_spending_by_category
