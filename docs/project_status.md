@@ -1,6 +1,6 @@
 # Project Status - MoneyMind
 
-> Ultimo aggiornamento: 2026-01-07
+> Ultimo aggiornamento: 2026-01-07 (v7.1)
 
 ## Mission Alignment
 
@@ -26,7 +26,7 @@
 
 ---
 
-## Versione Corrente: v7.0 (Data Quality & Budget Classification)
+## Versione Corrente: v7.1 (Recurring Intelligence & Bug Fixes)
 
 ### Stato Implementazione
 
@@ -37,7 +37,7 @@
 | **Sprint 3: Sicurezza** | ✅ COMPLETATO | Debt Journey, Goals, Celebrations |
 | **Sprint 4: FIRE** | ✅ COMPLETATO | FIRE Calculator, Milestones, Scenarios |
 | **Sprint 5: Data Quality** | ✅ COMPLETATO | Budget Classifier, Recurring Detector, Personalized Benchmarks |
-| **Sprint 6: Coaching** | 🚧 IN CORSO | AI Coach chat miglioramenti |
+| **Sprint 6: Recurring Intelligence** | ✅ COMPLETATO | Due dates, AI suggestions, False positive filter |
 
 ---
 
@@ -56,7 +56,30 @@
 
 ## Feature Completate
 
-### v7.0 - Data Quality & Budget Classification (CURRENT)
+### v7.1 - Recurring Intelligence & Bug Fixes (CURRENT)
+
+#### Recurring Expenses Intelligence
+- [x] Due dates calculation with `calculate_next_due_date()`
+- [x] AI-powered optimization suggestions (`generate_ai_suggestion()`)
+- [x] "Scadenze questo mese" summary card
+- [x] Due date badges (Oggi, Domani, 3g, 5g, etc.)
+- [x] AI action badges (OK, Rinegozia, Verifica, Disdici)
+- [x] AI reasons displayed for non-OK items
+- [x] Budget impact percentages for high-impact expenses
+- [x] Sort by next due date (soonest first)
+
+#### False Positive Filter
+- [x] Filter out non-subscription categories from recurring list
+- [x] Excluded: Spesa, Ristoranti, Caffe, Food Delivery, Shopping, Viaggi, etc.
+- [x] Reduced from 56 to 24 real subscriptions/recurring expenses
+
+#### Bug Fixes
+- [x] Fixed `src/analytics.py` import path for backend compatibility
+- [x] Fixed `profile.py` snapshot key names (`total_income`/`total_expenses`)
+- [x] Fixed category amount field lookup in monthly report
+- [x] Profile > Review tab now shows real data
+
+### v7.0 - Data Quality & Budget Classification
 
 #### Budget Classification System
 - [x] Fixed vs Discretionary expense classification
@@ -205,30 +228,36 @@
 
 ## Dove ci siamo interrotti
 
-**Sessione 2026-01-07 (Completata)**:
+**Sessione 2026-01-07 Sera (Completata - v7.1)**:
+- ✅ FASE 2: Recurring Intelligence implementata
+  - Due dates con `calculate_next_due_date()`
+  - AI suggestions con `generate_ai_suggestion()`
+  - Frontend: badges, summary card, AI reasons
+- ✅ Bug fixes: analytics.py import, profile.py keys, Review tab
+- ✅ False positive filter: 56 → 24 abbonamenti reali
+- ✅ Verificate tutte le sezioni (Dashboard, Money, Goals, Profile)
+- ✅ Pushato su GitHub (2 commits)
+
+**Sessione 2026-01-07 Mattina (Completata - v7.0)**:
 - ✅ Implementato piano v7.0 Data Quality & Budget Classification
 - ✅ Creato `budget_classifier.py` per Fixed vs Discretionary
 - ✅ Creato `recurring_detector.py` per auto-detection ricorrenti
 - ✅ Aggiornato `report_analyzer.py` con benchmark personalizzati
-- ✅ Nuovo endpoint `/api/budgets/fixed-discretionary`
-- ✅ Nuovo componente `BudgetRemaining` nel frontend
-- ✅ Testato end-to-end con Playwright
-- ✅ Freedom Score B (75/100) verificato
 
-**Sessione 2026-01-06 (Completata)**:
+**Sessione 2026-01-06 (Completata - v6.0)**:
 - ✅ Implementato piano v6.0 Desktop Dashboard
 - ✅ Convertite tutte le pagine a desktop layout
 - ✅ FIRE Calculator funzionante (€542k target, 17.5 anni)
 
 **Stato applicazione**:
 - Backend: http://localhost:8001 (FastAPI)
-- Frontend: http://localhost:3000 (Next.js)
-- Database: SQLite con 1717 transazioni categorizzate
+- Frontend: http://localhost:3002 (Next.js)
+- Database: SQLite con 3236 transazioni categorizzate (Feb 2025 - Gen 2026)
 
 **Prossimi step opzionali**:
-1. Sprint 6: Coaching improvements
-2. PWA manifest
-3. Deploy produzione
+1. PWA manifest per installazione
+2. Deploy produzione (Vercel + Railway)
+3. Notifiche push per daily actions
 
 ---
 
@@ -236,10 +265,12 @@
 
 | Metrica | Valore |
 |---------|--------|
-| Transazioni processate | 1,717 |
+| Transazioni processate | 3,236 |
+| Mesi coperti | Feb 2025 - Gen 2026 |
 | Categorie | 21 |
 | Pattern categorizzazione | 100+ |
 | Accuracy categorizzazione | 99.9% |
+| Abbonamenti tracciati | 24 (filtrati da 56) |
 | Tabelle database | 19+ |
 | Repository classes | 7 |
 | Core finance modules | 12 |
@@ -247,6 +278,8 @@
 | API endpoints | 25+ |
 | React components | 50+ |
 | Freedom Score | B (75/100) |
+| Savings Rate | 42.3% |
+| Total Debt | €23,000 |
 | FIRE Target | €542,259 |
 | Years to FI | 17.5 |
 
