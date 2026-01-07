@@ -55,18 +55,23 @@ SUBSCRIPTION_PROVIDERS = [
     "github", "chatgpt", "openai", "claude", "anthropic", "notion",
     "figma", "adobe", "canva", "dropbox", "google one", "icloud",
     "microsoft 365", "office 365", "zoom", "slack", "asana",
+    # AI Services
+    "elevenlabs", "midjourney", "runway", "perplexity",
     # News/Content
     "medium", "substack", "patreon", "onlyfans",
     # Fitness
     "strava", "whoop", "fitbit", "peloton", "apple fitness",
     # Dating
     "tinder", "bumble", "hinge",
-    # Gaming
-    "playstation", "xbox", "nintendo", "steam", "epic games",
+    # Gaming Subscriptions (NOT one-time purchases)
+    "playstation plus", "xbox game pass", "nintendo online", "epic games",
     # VPN/Security
     "nordvpn", "expressvpn", "1password", "bitwarden", "lastpass",
-    # Financial
-    "revolut", "wise", "n26", "nexi"
+]
+
+# Payment service providers - NOT subscriptions (just the platform for payments)
+PAYMENT_SERVICE_PROVIDERS = [
+    "revolut", "wise", "n26", "nexi", "paypal", "satispay", "hype"
 ]
 
 SERVICE_PROVIDERS = [
@@ -75,7 +80,7 @@ SERVICE_PROVIDERS = [
 ]
 
 # Categories that should NEVER be considered subscriptions
-# These represent regular shopping/dining, not cancellable subscriptions
+# These represent regular shopping/dining/services, not cancellable subscriptions
 NON_SUBSCRIPTION_CATEGORIES = [
     "Spesa",           # Grocery shopping - regular but not a subscription
     "Ristoranti",      # Dining out - regular but not a subscription
@@ -88,6 +93,8 @@ NON_SUBSCRIPTION_CATEGORIES = [
     "Gatti",           # Pet expenses - regular but not cancellable subscriptions
     "Salute",          # Health - not regular subscriptions
     "Barbiere",        # Haircuts - regular but not a subscription
+    "Psicologo",       # Therapy sessions - regular service, not a subscription
+    "Intrattenimento", # Gaming purchases (Steam), events - one-time, not subscription
 ]
 
 

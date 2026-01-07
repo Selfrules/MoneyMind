@@ -22,6 +22,7 @@ from app.schemas.recurring import (
 from app.api.deps import get_db
 from src.repositories.recurring_repository import RecurringRepository
 from src.database import get_user_profile
+from src.data.transaction_mappings import get_readable_description
 
 
 router = APIRouter()
@@ -32,7 +33,24 @@ def calculate_next_due_date(last_occurrence: date, frequency: str) -> date:
     if not last_occurrence:
         return None
 
-    if frequency == "monthly":
+    today = date.today()
+
+    # FIX: Check if subscription is too old (likely cancelled)
+    # If last payment was too long ago, don't calculate future due dates
+    max_gap_days = {
+        "weekly": 30,      # 4 weeks without payment = inactive
+        "monthly": 75,     # 2.5 months without payment = inactive
+        "quarterly": 150,  # 5 months without payment = inactive
+        "annual": 420      # 14 months without payment = inactive
+    }
+    days_since_last = (today - last_occurrence).days
+    if days_since_last > max_gap_days.get(frequency, 75):
+        return None  # Subscription likely cancelled, don't show due date
+
+    # Calculate next date based on frequency
+    if frequency == "weekly":
+        next_date = last_occurrence + relativedelta(weeks=1)
+    elif frequency == "monthly":
         next_date = last_occurrence + relativedelta(months=1)
     elif frequency == "quarterly":
         next_date = last_occurrence + relativedelta(months=3)
@@ -42,9 +60,13 @@ def calculate_next_due_date(last_occurrence: date, frequency: str) -> date:
         next_date = last_occurrence + relativedelta(months=1)
 
     # If next_date is in the past, keep adding until it's in the future
-    today = date.today()
-    while next_date < today:
-        if frequency == "monthly":
+    # FIX: Add max iterations to prevent infinite loop
+    max_iterations = 24
+    iterations = 0
+    while next_date < today and iterations < max_iterations:
+        if frequency == "weekly":
+            next_date = next_date + relativedelta(weeks=1)
+        elif frequency == "monthly":
             next_date = next_date + relativedelta(months=1)
         elif frequency == "quarterly":
             next_date = next_date + relativedelta(months=3)
@@ -52,8 +74,34 @@ def calculate_next_due_date(last_occurrence: date, frequency: str) -> date:
             next_date = next_date + relativedelta(years=1)
         else:
             next_date = next_date + relativedelta(months=1)
+        iterations += 1
 
     return next_date
+
+
+def is_subscription_active(last_occurrence: date, frequency: str) -> bool:
+    """
+    Determine if a subscription is still active based on last payment date.
+
+    A subscription is considered INACTIVE if too much time has passed
+    since the last payment (likely cancelled or no longer used).
+    """
+    if not last_occurrence:
+        return False
+
+    today = date.today()
+    days_since_last = (today - last_occurrence).days
+
+    # Thresholds for considering a subscription inactive
+    inactivity_thresholds = {
+        "weekly": 21,      # 3 weeks without payment = inactive
+        "monthly": 60,     # 2 months without payment = inactive
+        "quarterly": 120,  # 4 months = inactive
+        "annual": 400      # 13 months = inactive
+    }
+
+    threshold = inactivity_thresholds.get(frequency, 60)
+    return days_since_last <= threshold
 
 
 def generate_ai_suggestion(exp, monthly_income: float, total_recurring: float):
@@ -136,7 +184,7 @@ def generate_ai_suggestion(exp, monthly_income: float, total_recurring: float):
         "ai_priority": priority
     }
 
-# Categories that are NOT real subscriptions - regular shopping/dining patterns
+# Categories that are NOT real subscriptions - regular shopping/dining/services patterns
 # These should not appear in the recurring expenses list
 NON_SUBSCRIPTION_CATEGORIES = [
     "Spesa",           # Grocery shopping - regular but not a subscription
@@ -151,6 +199,8 @@ NON_SUBSCRIPTION_CATEGORIES = [
     "Salute",          # Health - not regular subscriptions
     "Barbiere",        # Haircuts - regular but not a subscription
     "Altro",           # Miscellaneous - often false positives
+    "Psicologo",       # Therapy sessions (Unobravo) - regular service, not subscription
+    "Intrattenimento", # Gaming purchases (Steam), events - one-time, not subscription
 ]
 
 
@@ -162,10 +212,13 @@ async def get_recurring_summary():
     # Get all active recurring expenses
     all_expenses = repo.get_active()
 
-    # Filter out non-subscription categories (same logic as subscription audit)
+    # Filter out:
+    # 1. Non-subscription categories (regular shopping/dining patterns)
+    # 2. Inactive subscriptions (no payment for too long = likely cancelled)
     expenses = [
         exp for exp in all_expenses
         if exp.category_name not in NON_SUBSCRIPTION_CATEGORIES
+        and is_subscription_active(exp.last_occurrence, exp.frequency)
     ]
 
     # Get user profile for income
@@ -215,9 +268,12 @@ async def get_recurring_summary():
         # Generate AI suggestion
         ai = generate_ai_suggestion(exp, monthly_income, total_recurring)
 
+        # Map cryptic pattern names to readable descriptions
+        display_name = get_readable_description(exp.pattern_name or "")
+
         expense_list.append(RecurringExpenseResponse(
             id=exp.id,
-            pattern_name=exp.pattern_name or "",
+            pattern_name=display_name,
             category_id=exp.category_id,
             category_name=exp.category_name,
             category_icon=exp.category_icon,

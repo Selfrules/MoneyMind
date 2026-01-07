@@ -137,7 +137,7 @@ SUBSCRIPTION_PATTERNS = [
     r"slack",
     r"zoom",
     r"microsoft 365",
-    r"steam",
+    # r"steam",  # REMOVED: Steam is gaming purchases, not subscription
     r"gog\.com",
     r"linkedin",
     # r"make\b",  # REMOVED: Make is a restaurant in Vignola, not Make.com!

@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
-from app.api.routes import dashboard, actions, insights, transactions, budgets, recurring, trends, debts, goals, profile, import_transactions, xray, quickwins, impact, fire, report
+from app.api.routes import dashboard, actions, insights, transactions, budgets, recurring, trends, debts, goals, profile, import_transactions, xray, quickwins, impact, fire, report, analysis
 
 settings = get_settings()
 
@@ -46,6 +46,7 @@ app.include_router(quickwins.router, prefix="/api", tags=["Quick Wins"])
 app.include_router(impact.router, prefix="/api", tags=["Impact Calculator"])
 app.include_router(fire.router, prefix="/api", tags=["FIRE Calculator"])
 app.include_router(report.router, prefix="/api", tags=["Report"])
+app.include_router(analysis.router, prefix="/api", tags=["AI Analysis"])
 
 
 @app.get("/health")
