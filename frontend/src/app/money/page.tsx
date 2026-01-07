@@ -83,6 +83,9 @@ function RecurringTab() {
       nonEssentialMonthly={data.non_essential_monthly}
       potentialSavings={data.potential_savings}
       optimizableCount={data.optimizable_count}
+      dueThisMonthCount={data.due_this_month_count}
+      dueThisMonthTotal={data.due_this_month_total}
+      highPriorityActions={data.high_priority_actions}
     />
   );
 }

@@ -10,6 +10,11 @@ import {
   Lightbulb,
   Calendar,
   PiggyBank,
+  Clock,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  MessageSquare,
 } from "lucide-react";
 
 interface RecurringListProps {
@@ -19,6 +24,9 @@ interface RecurringListProps {
   nonEssentialMonthly: number;
   potentialSavings: number;
   optimizableCount: number;
+  dueThisMonthCount?: number;
+  dueThisMonthTotal?: number;
+  highPriorityActions?: number;
 }
 
 function formatAmount(amount: number): string {
@@ -81,6 +89,64 @@ function OptimizationBadge({ status }: { status: string }) {
   );
 }
 
+function AIActionBadge({ action, priority }: { action: string | null; priority: string | null }) {
+  if (!action) return null;
+
+  const config: Record<string, { icon: React.ReactNode; label: string; className: string }> = {
+    keep: {
+      icon: <CheckCircle className="w-3 h-3 mr-1" />,
+      label: "OK",
+      className: "text-income border-income/30 bg-income/5",
+    },
+    cancel: {
+      icon: <XCircle className="w-3 h-3 mr-1" />,
+      label: "Disdici",
+      className: "text-expense border-expense/30 bg-expense/5",
+    },
+    renegotiate: {
+      icon: <MessageSquare className="w-3 h-3 mr-1" />,
+      label: "Rinegozia",
+      className: "text-warning border-warning/30 bg-warning/5",
+    },
+    review: {
+      icon: <AlertTriangle className="w-3 h-3 mr-1" />,
+      label: "Verifica",
+      className: "text-primary border-primary/30 bg-primary/5",
+    },
+  };
+
+  const cfg = config[action] || config.keep;
+  const priorityIndicator = priority === "high" ? "!" : "";
+
+  return (
+    <Badge variant="outline" className={`text-xs ${cfg.className}`}>
+      {cfg.icon}
+      {cfg.label}{priorityIndicator}
+    </Badge>
+  );
+}
+
+function DueDateBadge({ daysUntil }: { daysUntil: number | null }) {
+  if (daysUntil === null) return null;
+
+  let className = "text-muted-foreground border-muted/30";
+  let label = `${daysUntil}g`;
+
+  if (daysUntil <= 3) {
+    className = "text-expense border-expense/30";
+    label = daysUntil === 0 ? "Oggi" : daysUntil === 1 ? "Domani" : `${daysUntil}g`;
+  } else if (daysUntil <= 7) {
+    className = "text-warning border-warning/30";
+  }
+
+  return (
+    <Badge variant="outline" className={`text-xs ${className}`}>
+      <Clock className="w-3 h-3 mr-1" />
+      {label}
+    </Badge>
+  );
+}
+
 function RecurringItem({ expense }: { expense: RecurringExpense }) {
   return (
     <div className="space-y-2 py-3 border-b border-border/50 last:border-0">
@@ -98,38 +164,38 @@ function RecurringItem({ expense }: { expense: RecurringExpense }) {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col items-end gap-1">
           <span className="text-sm font-semibold text-expense">
-            {formatAmount(expense.avg_amount)}/mese
+            {formatAmount(expense.avg_amount)}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {formatFrequency(expense.frequency)}
           </span>
         </div>
       </div>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="text-xs">
-            <Calendar className="w-3 h-3 mr-1" />
-            {formatFrequency(expense.frequency)}
-          </Badge>
+      <div className="flex items-center justify-between flex-wrap gap-1">
+        <div className="flex items-center gap-1 flex-wrap">
+          <DueDateBadge daysUntil={expense.days_until_due} />
           {expense.is_essential && (
             <Badge variant="outline" className="text-xs">
               Essenziale
             </Badge>
           )}
           <TrendBadge percent={expense.trend_percent} />
-        </div>
-        <OptimizationBadge status={expense.optimization_status} />
-      </div>
-      {expense.optimization_suggestion && (
-        <div className="bg-warning/10 border border-warning/20 rounded-lg p-2 mt-2">
-          <p className="text-xs text-warning">
-            <Lightbulb className="w-3 h-3 inline mr-1" />
-            {expense.optimization_suggestion}
-          </p>
-          {expense.estimated_savings_monthly && expense.estimated_savings_monthly > 0 && (
-            <p className="text-xs text-income mt-1">
-              Risparmio potenziale: {formatAmount(expense.estimated_savings_monthly)}/mese
-            </p>
+          {expense.budget_impact_percent && expense.budget_impact_percent > 3 && (
+            <Badge variant="outline" className="text-xs text-muted-foreground">
+              {expense.budget_impact_percent.toFixed(1)}% budget
+            </Badge>
           )}
+        </div>
+        <AIActionBadge action={expense.ai_action} priority={expense.ai_priority} />
+      </div>
+      {expense.ai_reason && expense.ai_action !== "keep" && (
+        <div className="bg-muted/50 border border-border/50 rounded-lg p-2 mt-1">
+          <p className="text-xs text-muted-foreground">
+            <Lightbulb className="w-3 h-3 inline mr-1 text-primary" />
+            {expense.ai_reason}
+          </p>
         </div>
       )}
     </div>
@@ -143,6 +209,9 @@ export function RecurringList({
   nonEssentialMonthly,
   potentialSavings,
   optimizableCount,
+  dueThisMonthCount = 0,
+  dueThisMonthTotal = 0,
+  highPriorityActions = 0,
 }: RecurringListProps) {
   if (expenses.length === 0) {
     return (
@@ -159,10 +228,44 @@ export function RecurringList({
 
   return (
     <div className="space-y-4">
+      {/* Due This Month Card */}
+      {dueThisMonthCount > 0 && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/20 rounded-full">
+                  <Calendar className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Scadenze questo mese</p>
+                  <p className="text-xs text-muted-foreground">
+                    {dueThisMonthCount} pagamenti in arrivo
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="text-xl font-bold text-primary">
+                  {formatAmount(dueThisMonthTotal)}
+                </span>
+              </div>
+            </div>
+            {highPriorityActions > 0 && (
+              <div className="mt-3 flex items-center gap-2 text-warning">
+                <AlertTriangle className="w-4 h-4" />
+                <span className="text-xs">
+                  {highPriorityActions} azioni ad alta priorità da verificare
+                </span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Summary Card */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Riepilogo Ricorrenti</CardTitle>
+          <CardTitle className="text-base">Riepilogo Mensile</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex justify-between items-center">
@@ -202,7 +305,12 @@ export function RecurringList({
       {/* Expenses List */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Spese Ricorrenti</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">Prossime Scadenze</CardTitle>
+            <Badge variant="secondary" className="text-xs">
+              {expenses.length} abbonamenti
+            </Badge>
+          </div>
         </CardHeader>
         <CardContent>
           {expenses.map((expense) => (
