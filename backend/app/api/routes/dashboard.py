@@ -1,5 +1,6 @@
 """
 Dashboard API endpoints.
+Updated to force reload with fixed get_latest_balances.
 """
 import sys
 from pathlib import Path

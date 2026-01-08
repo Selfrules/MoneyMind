@@ -11,6 +11,7 @@ import {
   MonthComparison,
   BudgetRemaining,
 } from "@/components/report";
+import { DeepAnalysis } from "@/components/dashboard/deep-analysis";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, AlertCircle, RefreshCw, Calendar, FileBarChart } from "lucide-react";
@@ -100,6 +101,9 @@ export default function HomePage() {
         isLoading={budgetLoading}
       />
 
+      {/* AI Deep Analysis */}
+      <DeepAnalysis />
+
       {/* Main Report Grid */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* Category Spending Analysis */}
@@ -144,7 +148,7 @@ export default function HomePage() {
         <CardContent className="py-4">
           <div className="flex items-center justify-between text-sm text-muted-foreground">
             <span>Report generato il {report?.report_date || new Date().toISOString().split('T')[0]}</span>
-            <span>MoneyMind v6.0 - Il tuo consulente finanziario AI</span>
+            <span>MoneyMind v7.1 - Il tuo consulente finanziario AI</span>
           </div>
         </CardContent>
       </Card>

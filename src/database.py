@@ -777,7 +777,7 @@ def get_spending_by_category(month: str) -> list[dict]:
 
 def get_latest_balances() -> list[dict]:
     """
-    Get the most recent balance for each bank.
+    Get the most recent balance for each bank and account type combination.
 
     Returns:
         list[dict]: List with bank name, balance, date, and account_type
@@ -796,11 +796,12 @@ def get_latest_balances() -> list[dict]:
                 SELECT MAX(t2.date)
                 FROM transactions t2
                 WHERE t2.bank = t1.bank
+                AND t2.account_type = t1.account_type
                 AND t2.balance IS NOT NULL
             )
             AND balance IS NOT NULL
-            GROUP BY bank
-            ORDER BY bank
+            GROUP BY bank, account_type
+            ORDER BY bank, account_type
             """
         )
         return [dict(row) for row in cursor.fetchall()]

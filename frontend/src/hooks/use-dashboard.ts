@@ -13,6 +13,8 @@ import {
   getTopQuickWins,
   getScenarioPresets,
   simulatePreset,
+  getDeepAnalysis,
+  getQuickInsights,
 } from "@/lib/api";
 import type { QuickWinsResponse, ScenarioPreset, ScenarioResult } from "@/lib/api";
 import type { CompleteActionRequest } from "@/lib/api-types";
@@ -27,6 +29,8 @@ export const queryKeys = {
   quickwins: ["quickwins"] as const,
   scenarioPresets: ["scenario", "presets"] as const,
   scenarioResult: ["scenario", "result"] as const,
+  deepAnalysis: ["deep-analysis"] as const,
+  quickInsights: ["quick-insights"] as const,
 };
 
 // Dashboard hook
@@ -150,5 +154,25 @@ export function useSimulatePreset() {
       // Cache the result
       queryClient.setQueryData([...queryKeys.scenarioResult, data.scenario_name], data);
     },
+  });
+}
+
+// Deep Analysis hook (AI-powered, may take 10-30 seconds)
+export function useDeepAnalysis() {
+  return useQuery({
+    queryKey: queryKeys.deepAnalysis,
+    queryFn: getDeepAnalysis,
+    staleTime: 1000 * 60 * 10, // 10 minutes (expensive operation)
+    refetchOnWindowFocus: false,
+    retry: 1, // Only retry once if it fails
+  });
+}
+
+// Quick Insights hook (rule-based, fast)
+export function useQuickInsights() {
+  return useQuery({
+    queryKey: queryKeys.quickInsights,
+    queryFn: getQuickInsights,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }
